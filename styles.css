@@ -320,6 +320,80 @@ iframe {
     margin-top: 1.5rem;
 }
 
+/* Demo mode notice */
+.demo-notice {
+    background-color: #fff3cd;
+    color: #856404;
+    padding: 0.75rem 1.25rem;
+    margin-bottom: 1rem;
+    border: 1px solid #ffeeba;
+    border-radius: 4px;
+    text-align: center;
+    font-weight: bold;
+}
+
+/* React desktop components */
+.tools-preview {
+    text-align: left;
+    margin-bottom: 2rem;
+    background-color: rgba(255, 255, 255, 0.1);
+    padding: 1.5rem;
+    border-radius: 6px;
+}
+
+.tools-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 1rem;
+    margin-top: 1rem;
+}
+
+.tool-card {
+    background-color: rgba(0, 0, 0, 0.3);
+    padding: 1rem;
+    border-radius: 6px;
+    text-align: center;
+    transition: transform 0.2s, background-color 0.2s;
+}
+
+.tool-card:hover {
+    transform: translateY(-5px);
+    background-color: rgba(0, 0, 0, 0.5);
+}
+
+.tool-icon {
+    font-size: 2rem;
+    margin-bottom: 0.5rem;
+}
+
+.tool-card h3 {
+    color: #E95420;
+    margin-bottom: 0.5rem;
+}
+
+.action-buttons {
+    margin-top: 2rem;
+}
+
+.loading {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    font-size: 1.5rem;
+    color: white;
+    background-color: #222;
+}
+
+.loading-message {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100%;
+    font-size: 1.5rem;
+    color: white;
+}
+
 /* Responsive styles */
 @media (max-width: 768px) {
     .features {

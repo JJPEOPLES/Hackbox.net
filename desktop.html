@@ -5,64 +5,20 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>HackBox - Ubuntu LXDE Desktop</title>
     <link rel="stylesheet" href="styles.css">
+    <!-- React and ReactDOM CDN -->
+    <script src="https://unpkg.com/react@17/umd/react.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@17/umd/react-dom.production.min.js" crossorigin></script>
+    <!-- Babel for JSX -->
+    <script src="https://unpkg.com/babel-standalone@6/babel.min.js"></script>
 </head>
 <body>
-    <div class="desktop-container">
-        <div class="desktop-header">
-            <h1>HackBox Ubuntu LXDE</h1>
-            <div class="controls">
-                <a href="index.html">Back to Home</a>
-                <a href="#" id="fullscreen-btn" style="display: none;">Fullscreen</a>
-            </div>
-        </div>
-        <div class="novnc-container" id="novnc-container">
-            <!-- This content will be replaced with the noVNC iframe if running locally -->
-            <div class="desktop-placeholder">
-                <div class="desktop-info">
-                    <h2>Ubuntu LXDE Desktop</h2>
-                    <p>The Ubuntu LXDE desktop environment is only available when running HackBox locally with Docker.</p>
-                    
-                    <div class="desktop-instructions">
-                        <h3>How to Run Locally:</h3>
-                        <ol>
-                            <li>Clone the repository: <code>git clone https://github.com/JJPEOPLES/Hackbox.net</code></li>
-                            <li>Navigate to the project: <code>cd Hackbox.net</code></li>
-                            <li>Start the Docker container: <code>npm start</code></li>
-                            <li>Access the desktop at: <code>http://localhost:8080</code></li>
-                        </ol>
-                    </div>
-                    
-                    <div class="desktop-features">
-                        <h3>Features Available Locally:</h3>
-                        <ul>
-                            <li>Full Ubuntu Linux environment</li>
-                            <li>LXDE desktop environment</li>
-                            <li>Pre-installed cybersecurity tools</li>
-                            <li>Persistent storage</li>
-                        </ul>
-                    </div>
-                    
-                    <a href="index.html" class="back-button">Back to Home</a>
-                    <a href="users.html" class="launch-button">Try User Management Demo</a>
-                </div>
-            </div>
-        </div>
-    </div>
+    <!-- React app container -->
+    <div id="desktop-app"></div>
 
-    <script>
-        // Handle fullscreen functionality
-        document.getElementById('fullscreen-btn').addEventListener('click', function() {
-            const iframe = document.getElementById('novnc-frame');
-            if (iframe) {
-                if (iframe.requestFullscreen) {
-                    iframe.requestFullscreen();
-                } else if (iframe.webkitRequestFullscreen) {
-                    iframe.webkitRequestFullscreen();
-                } else if (iframe.msRequestFullscreen) {
-                    iframe.msRequestFullscreen();
-                }
-            }
-        });
-    </script>
+    <!-- Load the React component -->
+    <script type="text/babel" src="desktop-react.js"></script>
+    
+    <!-- Main script -->
+    <script src="script.js"></script>
 </body>
 </html>
