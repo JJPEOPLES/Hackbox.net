@@ -73,10 +73,12 @@ To use the Netlify DB features:
 Example code for using Netlify DB in your functions:
 
 ```javascript
-import { neon } from '@netlify/neon';
+// Using CommonJS syntax for Node.js 16.x compatibility
+const { neon } = require('@netlify/neon');
 
-export const handler = async function(event, context) {
+exports.handler = async function(event, context) {
   // Create a SQL client using the NETLIFY_DATABASE_URL environment variable
+  // This is automatically set by Netlify after running 'netlify db init'
   const sql = neon();
   
   // Query the database
@@ -89,3 +91,5 @@ export const handler = async function(event, context) {
   };
 }
 ```
+
+**Note:** The `@netlify/neon` package automatically uses the `NETLIFY_DATABASE_URL` environment variable, which is set by Netlify when you run `netlify db init`. You don't need to manually set this environment variable.
