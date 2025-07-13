@@ -1,0 +1,994 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HackBox - Docker VM Access</title>
+    <link rel="stylesheet" href="styles.css">
+    <!-- xterm.js for terminal emulation -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm@4.19.0/css/xterm.css" />
+    <script src="https://cdn.jsdelivr.net/npm/xterm@4.19.0/lib/xterm.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xterm-addon-fit@0.5.0/lib/xterm-addon-fit.js"></script>
+    <style>
+        body {
+            background-color: #222;
+            color: #f5f5f5;
+            font-family: Arial, sans-serif;
+        }
+        
+        .docker-vm-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 1rem;
+        }
+        
+        .docker-vm-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .docker-vm-header h1 {
+            color: #E95420;
+            margin: 0;
+        }
+        
+        .vm-status-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background-color: rgba(0, 0, 0, 0.3);
+            padding: 0.75rem 1.5rem;
+            border-radius: 6px;
+            margin-bottom: 1.5rem;
+        }
+        
+        .vm-info {
+            display: flex;
+            align-items: center;
+        }
+        
+        .vm-name {
+            font-size: 1.2rem;
+            font-weight: bold;
+            margin-right: 1rem;
+        }
+        
+        .vm-status-badge {
+            display: inline-block;
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.875rem;
+            text-transform: uppercase;
+        }
+        
+        .vm-status-badge.running {
+            background-color: rgba(40, 167, 69, 0.2);
+            color: #28a745;
+        }
+        
+        .vm-status-badge.stopped {
+            background-color: rgba(220, 53, 69, 0.2);
+            color: #dc3545;
+        }
+        
+        .vm-status-badge.starting {
+            background-color: rgba(255, 193, 7, 0.2);
+            color: #ffc107;
+        }
+        
+        .docker-vm-tabs {
+            display: flex;
+            margin-bottom: 1.5rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .tab {
+            padding: 0.75rem 1.5rem;
+            cursor: pointer;
+            transition: background-color 0.2s;
+            border-bottom: 3px solid transparent;
+        }
+        
+        .tab:hover {
+            background-color: rgba(255, 255, 255, 0.05);
+        }
+        
+        .tab.active {
+            border-bottom: 3px solid #E95420;
+            font-weight: bold;
+        }
+        
+        .docker-vm-content {
+            position: relative;
+            min-height: 500px;
+            background-color: rgba(0, 0, 0, 0.2);
+            border-radius: 6px;
+            overflow: hidden;
+        }
+        
+        .tab-content {
+            display: none;
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
+        
+        .terminal-container {
+            display: flex;
+            flex-direction: column;
+            height: 500px;
+        }
+        
+        .terminal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background-color: #1e1e1e;
+            padding: 0.5rem 1rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .terminal-title {
+            font-weight: bold;
+        }
+        
+        .terminal {
+            flex: 1;
+            background-color: #1e1e1e;
+            padding: 0.5rem;
+        }
+        
+        .terminal-placeholder, .desktop-placeholder {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 500px;
+            background-color: rgba(0, 0, 0, 0.2);
+        }
+        
+        .terminal-message, .desktop-message {
+            text-align: center;
+            padding: 2rem;
+        }
+        
+        .loading-spinner {
+            display: inline-block;
+            width: 50px;
+            height: 50px;
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top-color: #E95420;
+            animation: spin 1s ease-in-out infinite;
+            margin: 1rem 0;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        .btn-primary {
+            background-color: #E95420;
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        
+        .btn-secondary {
+            background-color: rgba(255, 255, 255, 0.1);
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        
+        .btn-success {
+            background-color: #28a745;
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        
+        .btn-danger {
+            background-color: #dc3545;
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        
+        .btn-sm {
+            padding: 0.25rem 0.5rem;
+            font-size: 0.875rem;
+        }
+        
+        .demo-notice {
+            background-color: rgba(255, 193, 7, 0.2);
+            color: #ffc107;
+            padding: 0.75rem 1.25rem;
+            border-radius: 4px;
+            margin-bottom: 1.5rem;
+            text-align: center;
+        }
+        
+        /* Desktop styles */
+        .desktop-frame {
+            height: 500px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .desktop-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background-color: #1e1e1e;
+            padding: 0.5rem 1rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .desktop-title {
+            font-weight: bold;
+        }
+        
+        .desktop-demo {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background-color: #2b2b2b;
+            height: 400px;
+        }
+        
+        .desktop-demo-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background-color: #333;
+            padding: 0.25rem 0.5rem;
+            font-size: 0.875rem;
+        }
+        
+        .desktop-demo-controls {
+            display: flex;
+        }
+        
+        .desktop-demo-control {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            text-align: center;
+            line-height: 16px;
+            margin-left: 0.5rem;
+            border-radius: 50%;
+            background-color: rgba(255, 255, 255, 0.1);
+            cursor: pointer;
+        }
+        
+        .desktop-demo-content {
+            flex: 1;
+            display: flex;
+        }
+        
+        .desktop-demo-sidebar {
+            width: 60px;
+            background-color: #333;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding-top: 1rem;
+        }
+        
+        .desktop-demo-icon {
+            width: 40px;
+            height: 40px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin-bottom: 1rem;
+            border-radius: 4px;
+            background-color: rgba(255, 255, 255, 0.05);
+            cursor: pointer;
+        }
+        
+        .desktop-demo-main {
+            flex: 1;
+            padding: 1rem;
+            position: relative;
+        }
+        
+        .desktop-demo-window {
+            position: absolute;
+            top: 50px;
+            left: 100px;
+            width: 500px;
+            height: 300px;
+            background-color: #1e1e1e;
+            border-radius: 6px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .desktop-demo-window-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background-color: #333;
+            padding: 0.5rem;
+            font-size: 0.875rem;
+        }
+        
+        .desktop-demo-window-close {
+            cursor: pointer;
+        }
+        
+        .desktop-demo-window-content {
+            flex: 1;
+            padding: 0.5rem;
+            font-family: monospace;
+            font-size: 0.875rem;
+            overflow: auto;
+        }
+        
+        .desktop-demo-footer {
+            height: 30px;
+            background-color: #333;
+            display: flex;
+            align-items: center;
+            padding: 0 0.5rem;
+            font-size: 0.875rem;
+        }
+        
+        .desktop-demo-start {
+            background-color: #E95420;
+            padding: 0.25rem 0.5rem;
+            border-radius: 3px;
+            margin-right: 1rem;
+            cursor: pointer;
+        }
+        
+        .desktop-demo-taskbar {
+            flex: 1;
+        }
+        
+        .desktop-demo-taskbar span {
+            display: inline-block;
+            background-color: rgba(255, 255, 255, 0.1);
+            padding: 0.25rem 0.5rem;
+            border-radius: 3px;
+        }
+        
+        .desktop-demo-time {
+            margin-left: 1rem;
+        }
+        
+        /* VM Settings styles */
+        .settings-container {
+            padding: 1.5rem;
+        }
+        
+        .vm-selection {
+            margin-bottom: 2rem;
+        }
+        
+        .vm-options {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+        
+        .vm-option {
+            display: flex;
+            align-items: center;
+            background-color: rgba(255, 255, 255, 0.05);
+            padding: 1rem;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+            border: 2px solid transparent;
+        }
+        
+        .vm-option:hover {
+            background-color: rgba(255, 255, 255, 0.1);
+        }
+        
+        .vm-option.selected {
+            border-color: #E95420;
+            background-color: rgba(233, 84, 32, 0.1);
+        }
+        
+        .vm-option-icon {
+            font-size: 2rem;
+            margin-right: 1rem;
+        }
+        
+        .vm-option-details h4 {
+            margin: 0 0 0.5rem 0;
+            color: #E95420;
+        }
+        
+        .vm-option-details p {
+            margin: 0;
+            font-size: 0.875rem;
+            opacity: 0.8;
+        }
+        
+        .form-group {
+            margin-bottom: 1rem;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+        }
+        
+        .form-group select {
+            width: 100%;
+            padding: 0.5rem;
+            background-color: rgba(255, 255, 255, 0.1);
+            color: white;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 4px;
+        }
+        
+        .settings-note {
+            font-size: 0.875rem;
+            opacity: 0.7;
+            margin-top: 0.5rem;
+        }
+        
+        .mt-4 {
+            margin-top: 1.5rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="docker-vm-container">
+        <div class="docker-vm-header">
+            <h1>HackBox Docker VM</h1>
+            <div class="controls">
+                <a href="index.html">Back to Home</a>
+                <button id="logout-btn" class="btn-secondary">Logout</button>
+            </div>
+        </div>
+        
+        <div class="demo-notice">
+            <p>Demo Mode: This is a simulated Docker VM experience. For full functionality, run HackBox locally.</p>
+        </div>
+        
+        <div class="vm-status-bar">
+            <div class="vm-info">
+                <span class="vm-name" id="vm-name">Ubuntu LXDE</span>
+                <span class="vm-status-badge stopped" id="vm-status">Stopped</span>
+            </div>
+            <div class="vm-controls">
+                <button id="start-vm-btn" class="btn-success">Start VM</button>
+                <button id="stop-vm-btn" class="btn-danger" style="display: none;">Stop VM</button>
+            </div>
+        </div>
+        
+        <div class="docker-vm-tabs">
+            <div class="tab active" data-tab="terminal">Terminal</div>
+            <div class="tab" data-tab="desktop">Desktop</div>
+            <div class="tab" data-tab="settings">Settings</div>
+        </div>
+        
+        <div class="docker-vm-content">
+            <!-- Terminal Tab -->
+            <div class="tab-content active" id="terminal-tab">
+                <div class="terminal-placeholder" id="terminal-placeholder">
+                    <div class="terminal-message">
+                        <h3>Terminal Not Available</h3>
+                        <p>Start the Docker VM to access the terminal.</p>
+                        <button class="btn-primary mt-4 start-vm-btn">Start VM</button>
+                    </div>
+                </div>
+                <div class="terminal-container" id="terminal-container" style="display: none;">
+                    <div class="terminal-header">
+                        <div class="terminal-title">Docker VM Terminal</div>
+                        <div class="terminal-controls">
+                            <button id="restart-terminal-btn" class="btn-secondary btn-sm">Restart Terminal</button>
+                        </div>
+                    </div>
+                    <div class="terminal" id="terminal"></div>
+                </div>
+            </div>
+            
+            <!-- Desktop Tab -->
+            <div class="tab-content" id="desktop-tab">
+                <div class="desktop-placeholder" id="desktop-placeholder">
+                    <div class="desktop-message">
+                        <h3>Desktop Not Available</h3>
+                        <p>Start the Docker VM to access the desktop environment.</p>
+                        <button class="btn-primary mt-4 start-vm-btn">Start VM</button>
+                    </div>
+                </div>
+                <div class="desktop-frame" id="desktop-frame" style="display: none;">
+                    <div class="desktop-header">
+                        <div class="desktop-title">Docker VM Desktop</div>
+                        <div class="desktop-controls">
+                            <button id="fullscreen-btn" class="btn-secondary btn-sm">Fullscreen</button>
+                        </div>
+                    </div>
+                    <div class="desktop-demo">
+                        <div class="desktop-demo-header">
+                            <div class="desktop-demo-title">Ubuntu LXDE Desktop (Demo)</div>
+                            <div class="desktop-demo-controls">
+                                <span class="desktop-demo-control">−</span>
+                                <span class="desktop-demo-control">□</span>
+                                <span class="desktop-demo-control">×</span>
+                            </div>
+                        </div>
+                        <div class="desktop-demo-content">
+                            <div class="desktop-demo-sidebar">
+                                <div class="desktop-demo-icon">🖥️</div>
+                                <div class="desktop-demo-icon">📁</div>
+                                <div class="desktop-demo-icon">🌐</div>
+                                <div class="desktop-demo-icon">📝</div>
+                                <div class="desktop-demo-icon">⚙️</div>
+                            </div>
+                            <div class="desktop-demo-main">
+                                <div class="desktop-demo-window">
+                                    <div class="desktop-demo-window-header">
+                                        <span>Terminal</span>
+                                        <span class="desktop-demo-window-close">×</span>
+                                    </div>
+                                    <div class="desktop-demo-window-content">
+                                        <pre>
+hackbox@ubuntu:~$ ls
+Documents  Downloads  Pictures  Videos
+Desktop    Music      Public    hackbox.txt
+hackbox@ubuntu:~$ _
+                                        </pre>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="desktop-demo-footer">
+                            <div class="desktop-demo-start">Start</div>
+                            <div class="desktop-demo-taskbar">
+                                <span>Terminal</span>
+                            </div>
+                            <div class="desktop-demo-time" id="desktop-time"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Settings Tab -->
+            <div class="tab-content" id="settings-tab">
+                <div class="settings-container">
+                    <h2>VM Settings</h2>
+                    
+                    <div class="vm-selection">
+                        <h3>Select VM Image</h3>
+                        <div class="vm-options">
+                            <div class="vm-option selected" data-vm-id="ubuntu-lxde">
+                                <div class="vm-option-icon">🖥️</div>
+                                <div class="vm-option-details">
+                                    <h4>Ubuntu LXDE</h4>
+                                    <p>Ubuntu with LXDE desktop environment</p>
+                                </div>
+                            </div>
+                            <div class="vm-option" data-vm-id="kali-linux">
+                                <div class="vm-option-icon">🛡️</div>
+                                <div class="vm-option-details">
+                                    <h4>Kali Linux</h4>
+                                    <p>Penetration testing and ethical hacking Linux distribution</p>
+                                </div>
+                            </div>
+                            <div class="vm-option" data-vm-id="parrot-sec">
+                                <div class="vm-option-icon">🦜</div>
+                                <div class="vm-option-details">
+                                    <h4>Parrot Security</h4>
+                                    <p>Security-focused Linux distribution</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="vm-resources mt-4">
+                        <h3>Resource Allocation</h3>
+                        <div class="form-group">
+                            <label for="cpu">CPU Cores</label>
+                            <select id="cpu">
+                                <option value="1">1 Core</option>
+                                <option value="2" selected>2 Cores</option>
+                                <option value="4">4 Cores</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="memory">Memory</label>
+                            <select id="memory">
+                                <option value="512">512 MB</option>
+                                <option value="1024" selected>1 GB</option>
+                                <option value="2048">2 GB</option>
+                                <option value="4096">4 GB</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="storage">Storage</label>
+                            <select id="storage">
+                                <option value="5">5 GB</option>
+                                <option value="10" selected>10 GB</option>
+                                <option value="20">20 GB</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="vm-actions mt-4">
+                        <button id="apply-settings-btn" class="btn-primary">Apply Settings</button>
+                        <p class="settings-note">
+                            Note: Settings can only be changed when the VM is stopped.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Global variables
+        let terminal = null;
+        let vmStatus = 'stopped'; // stopped, starting, running
+        let selectedVM = 'ubuntu-lxde';
+        
+        // DOM elements
+        const vmStatusBadge = document.getElementById('vm-status');
+        const vmNameElement = document.getElementById('vm-name');
+        const startVMBtn = document.getElementById('start-vm-btn');
+        const stopVMBtn = document.getElementById('stop-vm-btn');
+        const terminalPlaceholder = document.getElementById('terminal-placeholder');
+        const terminalContainer = document.getElementById('terminal-container');
+        const desktopPlaceholder = document.getElementById('desktop-placeholder');
+        const desktopFrame = document.getElementById('desktop-frame');
+        const restartTerminalBtn = document.getElementById('restart-terminal-btn');
+        const applySettingsBtn = document.getElementById('apply-settings-btn');
+        const desktopTimeElement = document.getElementById('desktop-time');
+        
+        // Initialize the page
+        document.addEventListener('DOMContentLoaded', function() {
+            // Set up tab switching
+            const tabs = document.querySelectorAll('.tab');
+            tabs.forEach(tab => {
+                tab.addEventListener('click', function() {
+                    const tabName = this.getAttribute('data-tab');
+                    switchTab(tabName);
+                });
+            });
+            
+            // Set up VM options
+            const vmOptions = document.querySelectorAll('.vm-option');
+            vmOptions.forEach(option => {
+                option.addEventListener('click', function() {
+                    const vmId = this.getAttribute('data-vm-id');
+                    selectVM(vmId);
+                });
+            });
+            
+            // Set up VM control buttons
+            startVMBtn.addEventListener('click', startVM);
+            document.querySelectorAll('.start-vm-btn').forEach(btn => {
+                btn.addEventListener('click', startVM);
+            });
+            stopVMBtn.addEventListener('click', stopVM);
+            
+            // Set up terminal restart button
+            restartTerminalBtn.addEventListener('click', restartTerminal);
+            
+            // Set up settings apply button
+            applySettingsBtn.addEventListener('click', applySettings);
+            
+            // Set up fullscreen button
+            document.getElementById('fullscreen-btn').addEventListener('click', function() {
+                alert('Fullscreen mode would be enabled in a real implementation');
+            });
+            
+            // Set up logout button
+            document.getElementById('logout-btn').addEventListener('click', function() {
+                alert('Logged out successfully');
+                window.location.href = 'index.html';
+            });
+            
+            // Update desktop time
+            updateDesktopTime();
+            setInterval(updateDesktopTime, 1000);
+        });
+        
+        // Switch between tabs
+        function switchTab(tabName) {
+            // Update tab buttons
+            document.querySelectorAll('.tab').forEach(tab => {
+                if (tab.getAttribute('data-tab') === tabName) {
+                    tab.classList.add('active');
+                } else {
+                    tab.classList.remove('active');
+                }
+            });
+            
+            // Update tab content
+            document.querySelectorAll('.tab-content').forEach(content => {
+                if (content.id === tabName + '-tab') {
+                    content.classList.add('active');
+                } else {
+                    content.classList.remove('active');
+                }
+            });
+            
+            // Initialize terminal if needed
+            if (tabName === 'terminal' && vmStatus === 'running' && !terminal) {
+                initTerminal();
+            }
+        }
+        
+        // Select a VM
+        function selectVM(vmId) {
+            selectedVM = vmId;
+            
+            // Update VM options
+            document.querySelectorAll('.vm-option').forEach(option => {
+                if (option.getAttribute('data-vm-id') === vmId) {
+                    option.classList.add('selected');
+                } else {
+                    option.classList.remove('selected');
+                }
+            });
+            
+            // Update VM name
+            const vmNames = {
+                'ubuntu-lxde': 'Ubuntu LXDE',
+                'kali-linux': 'Kali Linux',
+                'parrot-sec': 'Parrot Security'
+            };
+            vmNameElement.textContent = vmNames[vmId] || 'Unknown VM';
+        }
+        
+        // Start the VM
+        function startVM() {
+            vmStatus = 'starting';
+            updateVMStatus();
+            
+            // Simulate VM startup
+            setTimeout(function() {
+                vmStatus = 'running';
+                updateVMStatus();
+                
+                // Initialize terminal if on terminal tab
+                if (document.querySelector('.tab[data-tab="terminal"]').classList.contains('active')) {
+                    initTerminal();
+                }
+            }, 3000);
+        }
+        
+        // Stop the VM
+        function stopVM() {
+            vmStatus = 'stopped';
+            updateVMStatus();
+            
+            // Dispose terminal if it exists
+            if (terminal) {
+                terminal.dispose();
+                terminal = null;
+            }
+        }
+        
+        // Update VM status UI
+        function updateVMStatus() {
+            // Update status badge
+            vmStatusBadge.textContent = vmStatus.charAt(0).toUpperCase() + vmStatus.slice(1);
+            vmStatusBadge.className = 'vm-status-badge ' + vmStatus;
+            
+            // Update VM control buttons
+            if (vmStatus === 'stopped') {
+                startVMBtn.style.display = 'block';
+                stopVMBtn.style.display = 'none';
+            } else if (vmStatus === 'running') {
+                startVMBtn.style.display = 'none';
+                stopVMBtn.style.display = 'block';
+            } else {
+                startVMBtn.style.display = 'none';
+                stopVMBtn.style.display = 'block';
+                stopVMBtn.disabled = true;
+                setTimeout(function() {
+                    stopVMBtn.disabled = false;
+                }, 3000);
+            }
+            
+            // Update terminal and desktop visibility
+            if (vmStatus === 'running') {
+                terminalPlaceholder.style.display = 'none';
+                terminalContainer.style.display = 'flex';
+                desktopPlaceholder.style.display = 'none';
+                desktopFrame.style.display = 'flex';
+            } else if (vmStatus === 'starting') {
+                terminalPlaceholder.innerHTML = `
+                    <div class="terminal-message">
+                        <h3>Starting Docker VM...</h3>
+                        <div class="loading-spinner"></div>
+                        <p>This may take a few moments.</p>
+                    </div>
+                `;
+                desktopPlaceholder.innerHTML = `
+                    <div class="desktop-message">
+                        <h3>Starting Docker VM...</h3>
+                        <div class="loading-spinner"></div>
+                        <p>This may take a few moments.</p>
+                    </div>
+                `;
+                terminalContainer.style.display = 'none';
+                desktopFrame.style.display = 'none';
+            } else {
+                terminalPlaceholder.innerHTML = `
+                    <div class="terminal-message">
+                        <h3>Terminal Not Available</h3>
+                        <p>Start the Docker VM to access the terminal.</p>
+                        <button class="btn-primary mt-4 start-vm-btn">Start VM</button>
+                    </div>
+                `;
+                desktopPlaceholder.innerHTML = `
+                    <div class="desktop-message">
+                        <h3>Desktop Not Available</h3>
+                        <p>Start the Docker VM to access the desktop environment.</p>
+                        <button class="btn-primary mt-4 start-vm-btn">Start VM</button>
+                    </div>
+                `;
+                document.querySelectorAll('.start-vm-btn').forEach(btn => {
+                    btn.addEventListener('click', startVM);
+                });
+                terminalContainer.style.display = 'none';
+                desktopFrame.style.display = 'none';
+            }
+            
+            // Update settings button
+            applySettingsBtn.disabled = vmStatus !== 'stopped';
+        }
+        
+        // Initialize terminal
+        function initTerminal() {
+            if (!document.getElementById('terminal')) return;
+            
+            // Create terminal
+            terminal = new Terminal({
+                cursorBlink: true,
+                theme: {
+                    background: '#1e1e1e',
+                    foreground: '#f0f0f0'
+                }
+            });
+            
+            // Create fit addon
+            const fitAddon = new FitAddon.FitAddon();
+            terminal.loadAddon(fitAddon);
+            
+            // Open terminal
+            terminal.open(document.getElementById('terminal'));
+            fitAddon.fit();
+            
+            // Handle resize
+            window.addEventListener('resize', function() {
+                fitAddon.fit();
+            });
+            
+            // Write welcome message
+            terminal.writeln('Welcome to HackBox Docker VM Terminal');
+            terminal.writeln('');
+            terminal.writeln('This is a simulated terminal for demonstration purposes.');
+            terminal.writeln('In a real implementation, this would connect to a WebSocket');
+            terminal.writeln('that provides access to a real Docker container.');
+            terminal.writeln('');
+            terminal.write('$ ');
+            
+            // Handle input
+            let currentLine = '';
+            terminal.onData(function(data) {
+                // Handle backspace
+                if (data === '\u007f') {
+                    if (currentLine.length > 0) {
+                        currentLine = currentLine.slice(0, -1);
+                        terminal.write('\b \b');
+                    }
+                    return;
+                }
+                
+                // Handle enter
+                if (data === '\r') {
+                    terminal.writeln('');
+                    handleCommand(currentLine);
+                    currentLine = '';
+                    return;
+                }
+                
+                // Handle normal input
+                terminal.write(data);
+                currentLine += data;
+            });
+        }
+        
+        // Handle terminal commands
+        function handleCommand(command) {
+            if (!command.trim()) {
+                terminal.write('$ ');
+                return;
+            }
+            
+            // Process command
+            const cmd = command.trim().toLowerCase();
+            
+            if (cmd === 'help') {
+                terminal.writeln('Available commands:');
+                terminal.writeln('  help     - Show this help message');
+                terminal.writeln('  ls       - List files');
+                terminal.writeln('  pwd      - Print working directory');
+                terminal.writeln('  whoami   - Show current user');
+                terminal.writeln('  date     - Show current date and time');
+                terminal.writeln('  clear    - Clear the terminal');
+                terminal.writeln('  exit     - Exit the terminal');
+            } else if (cmd === 'ls') {
+                terminal.writeln('Documents  Downloads  Pictures  Videos');
+                terminal.writeln('Desktop    Music      Public    hackbox.txt');
+            } else if (cmd === 'pwd') {
+                terminal.writeln('/home/hackbox');
+            } else if (cmd === 'whoami') {
+                terminal.writeln('hackbox');
+            } else if (cmd === 'date') {
+                terminal.writeln(new Date().toString());
+            } else if (cmd === 'clear') {
+                terminal.clear();
+            } else if (cmd === 'exit') {
+                terminal.writeln('Closing terminal session...');
+                setTimeout(function() {
+                    terminal.clear();
+                    terminal.writeln('Terminal session closed.');
+                    terminal.writeln('');
+                    terminal.writeln('Click "Restart Terminal" to start a new session.');
+                }, 1000);
+                return;
+            } else {
+                terminal.writeln(`Command not found: ${cmd}`);
+                terminal.writeln('Type "help" for available commands.');
+            }
+            
+            terminal.write('$ ');
+        }
+        
+        // Restart terminal
+        function restartTerminal() {
+            if (terminal) {
+                terminal.dispose();
+                terminal = null;
+            }
+            
+            initTerminal();
+        }
+        
+        // Apply settings
+        function applySettings() {
+            const cpu = document.getElementById('cpu').value;
+            const memory = document.getElementById('memory').value;
+            const storage = document.getElementById('storage').value;
+            
+            alert(`Settings applied:\nVM: ${vmNameElement.textContent}\nCPU: ${cpu} core(s)\nMemory: ${memory} MB\nStorage: ${storage} GB`);
+        }
+        
+        // Update desktop time
+        function updateDesktopTime() {
+            if (desktopTimeElement) {
+                desktopTimeElement.textContent = new Date().toLocaleTimeString();
+            }
+        }
+    </script>
+</body>
+</html>

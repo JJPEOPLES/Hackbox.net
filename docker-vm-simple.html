@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HackBox - Docker VM Access</title>
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        .docker-vm-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+            background-color: #333;
+            color: white;
+            border-radius: 8px;
+        }
+        .terminal-container {
+            background-color: #000;
+            color: #0f0;
+            font-family: monospace;
+            padding: 1rem;
+            border-radius: 4px;
+            height: 300px;
+            overflow: auto;
+        }
+        .command-line {
+            display: flex;
+            margin-top: 1rem;
+        }
+        .command-line input {
+            flex: 1;
+            background-color: #000;
+            color: #0f0;
+            border: none;
+            font-family: monospace;
+            padding: 0.5rem;
+        }
+        .command-line button {
+            background-color: #E95420;
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            cursor: pointer;
+        }
+        .controls {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 1rem;
+        }
+        .vm-status {
+            display: flex;
+            justify-content: space-between;
+            background-color: #444;
+            padding: 1rem;
+            border-radius: 4px;
+            margin-bottom: 1rem;
+        }
+        .status-badge {
+            background-color: #28a745;
+            color: white;
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <div class="docker-vm-container">
+        <div class="controls">
+            <h1>HackBox Docker VM</h1>
+            <a href="index.html">Back to Home</a>
+        </div>
+        
+        <div class="vm-status">
+            <div>
+                <strong>Ubuntu LXDE</strong>
+                <span class="status-badge">Running</span>
+            </div>
+            <button onclick="alert('VM would be stopped in a real implementation')">Stop VM</button>
+        </div>
+        
+        <div class="terminal-container" id="terminal">
+            Welcome to HackBox Docker VM Terminal<br>
+            This is a simulated terminal for demonstration purposes.<br>
+            <br>
+            root@hackbox:~# ls<br>
+            Documents  Downloads  Pictures  Videos<br>
+            Desktop    Music      Public    hackbox.txt<br>
+            <br>
+            root@hackbox:~# pwd<br>
+            /root<br>
+            <br>
+            root@hackbox:~# whoami<br>
+            root<br>
+            <br>
+            root@hackbox:~# <span id="cursor">_</span>
+        </div>
+        
+        <div class="command-line">
+            <input type="text" id="command-input" placeholder="Enter command...">
+            <button onclick="executeCommand()">Execute</button>
+        </div>
+    </div>
+
+    <script>
+        // Simple blinking cursor
+        setInterval(() => {
+            const cursor = document.getElementById('cursor');
+            cursor.style.visibility = cursor.style.visibility === 'hidden' ? 'visible' : 'hidden';
+        }, 500);
+        
+        // Execute command
+        function executeCommand() {
+            const input = document.getElementById('command-input');
+            const terminal = document.getElementById('terminal');
+            const command = input.value.trim();
+            
+            if (command) {
+                terminal.innerHTML += `root@hackbox:~# ${command}<br>`;
+                
+                // Simple command handling
+                if (command === 'ls') {
+                    terminal.innerHTML += `Documents  Downloads  Pictures  Videos<br>Desktop    Music      Public    hackbox.txt<br>`;
+                } else if (command === 'pwd') {
+                    terminal.innerHTML += `/root<br>`;
+                } else if (command === 'whoami') {
+                    terminal.innerHTML += `root<br>`;
+                } else if (command === 'date') {
+                    terminal.innerHTML += `${new Date().toString()}<br>`;
+                } else if (command === 'clear') {
+                    terminal.innerHTML = `Welcome to HackBox Docker VM Terminal<br>`;
+                } else {
+                    terminal.innerHTML += `Command not found: ${command}<br>`;
+                }
+                
+                terminal.innerHTML += `<br>root@hackbox:~# <span id="cursor">_</span>`;
+                input.value = '';
+                
+                // Scroll to bottom
+                terminal.scrollTop = terminal.scrollHeight;
+            }
+        }
+        
+        // Execute command on Enter key
+        document.getElementById('command-input').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                executeCommand();
+            }
+        });
+    </script>
+</body>
+</html>
