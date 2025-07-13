@@ -1,0 +1,573 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HackBox - Docker VM Access</title>
+    <link rel="stylesheet" href="styles.css">
+    <!-- React and ReactDOM CDN -->
+    <script src="https://unpkg.com/react@17/umd/react.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@17/umd/react-dom.production.min.js" crossorigin></script>
+    <!-- Babel for JSX -->
+    <script src="https://unpkg.com/babel-standalone@6/babel.min.js"></script>
+    <!-- xterm.js for terminal emulation -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm@4.19.0/css/xterm.css" />
+    <script src="https://cdn.jsdelivr.net/npm/xterm@4.19.0/lib/xterm.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xterm-addon-fit@0.5.0/lib/xterm-addon-fit.js"></script>
+</head>
+<body>
+    <!-- React app container -->
+    <div id="docker-vm-app"></div>
+
+    <!-- React component for Docker VM access -->
+    <script type="text/babel">
+        class DockerVMApp extends React.Component {
+            constructor(props) {
+                super(props);
+                this.state = {
+                    isAuthenticated: false,
+                    authToken: '',
+                    loading: true,
+                    error: null,
+                    vmStatus: 'stopped', // stopped, starting, running
+                    activeTab: 'terminal',
+                    terminalReady: false,
+                    availableVMs: [
+                        { id: 'ubuntu-lxde', name: 'Ubuntu LXDE', description: 'Ubuntu with LXDE desktop environment', icon: '🖥️' },
+                        { id: 'kali-linux', name: 'Kali Linux', description: 'Penetration testing and ethical hacking Linux distribution', icon: '🛡️' },
+                        { id: 'parrot-sec', name: 'Parrot Security', description: 'Security-focused Linux distribution', icon: '🦜' }
+                    ],
+                    selectedVM: 'ubuntu-lxde',
+                    demoMode: true
+                };
+                
+                this.terminalRef = React.createRef();
+                this.terminal = null;
+            }
+
+            componentDidMount() {
+                // Check if user has a saved token
+                const savedToken = localStorage.getItem('dockerVMAuthToken');
+                if (savedToken) {
+                    this.setState({ 
+                        authToken: savedToken,
+                        isAuthenticated: true,
+                        loading: false
+                    });
+                } else {
+                    this.setState({ loading: false });
+                }
+                
+                // Check if running locally
+                const hostname = window.location.hostname;
+                const isLocal = hostname === 'localhost' || hostname === '127.0.0.1';
+                
+                if (isLocal) {
+                    this.setState({ demoMode: false });
+                }
+            }
+            
+            componentDidUpdate(prevProps, prevState) {
+                // Initialize terminal when tab changes to terminal and it's not initialized yet
+                if (this.state.activeTab === 'terminal' && 
+                    (prevState.activeTab !== 'terminal' || this.state.vmStatus === 'running' && prevState.vmStatus !== 'running') && 
+                    !this.state.terminalReady && 
+                    this.terminalRef.current) {
+                    this.initTerminal();
+                }
+            }
+            
+            initTerminal() {
+                if (!this.terminalRef.current) return;
+                
+                // Create terminal
+                this.terminal = new Terminal({
+                    cursorBlink: true,
+                    theme: {
+                        background: '#1e1e1e',
+                        foreground: '#f0f0f0'
+                    }
+                });
+                
+                // Create fit addon
+                const fitAddon = new FitAddon.FitAddon();
+                this.terminal.loadAddon(fitAddon);
+                
+                // Open terminal
+                this.terminal.open(this.terminalRef.current);
+                fitAddon.fit();
+                
+                // Handle resize
+                window.addEventListener('resize', () => {
+                    fitAddon.fit();
+                });
+                
+                // Set terminal ready
+                this.setState({ terminalReady: true });
+                
+                // Write welcome message
+                this.terminal.writeln('Welcome to HackBox Docker VM Terminal');
+                this.terminal.writeln('');
+                this.terminal.writeln('This is a simulated terminal for demonstration purposes.');
+                this.terminal.writeln('In a real implementation, this would connect to a WebSocket');
+                this.terminal.writeln('that provides access to a real Docker container.');
+                this.terminal.writeln('');
+                this.terminal.write('$ ');
+                
+                // Handle input
+                let currentLine = '';
+                this.terminal.onData(data => {
+                    // Handle backspace
+                    if (data === '\u007f') {
+                        if (currentLine.length > 0) {
+                            currentLine = currentLine.slice(0, -1);
+                            this.terminal.write('\b \b');
+                        }
+                        return;
+                    }
+                    
+                    // Handle enter
+                    if (data === '\r') {
+                        this.terminal.writeln('');
+                        this.handleCommand(currentLine);
+                        currentLine = '';
+                        return;
+                    }
+                    
+                    // Handle normal input
+                    this.terminal.write(data);
+                    currentLine += data;
+                });
+            }
+            
+            handleCommand(command) {
+                if (!command.trim()) {
+                    this.terminal.write('$ ');
+                    return;
+                }
+                
+                // Process command
+                const cmd = command.trim().toLowerCase();
+                
+                if (cmd === 'help') {
+                    this.terminal.writeln('Available commands:');
+                    this.terminal.writeln('  help     - Show this help message');
+                    this.terminal.writeln('  ls       - List files');
+                    this.terminal.writeln('  pwd      - Print working directory');
+                    this.terminal.writeln('  whoami   - Show current user');
+                    this.terminal.writeln('  date     - Show current date and time');
+                    this.terminal.writeln('  clear    - Clear the terminal');
+                    this.terminal.writeln('  exit     - Exit the terminal');
+                } else if (cmd === 'ls') {
+                    this.terminal.writeln('Documents  Downloads  Pictures  Videos');
+                    this.terminal.writeln('Desktop    Music      Public    hackbox.txt');
+                } else if (cmd === 'pwd') {
+                    this.terminal.writeln('/home/hackbox');
+                } else if (cmd === 'whoami') {
+                    this.terminal.writeln('hackbox');
+                } else if (cmd === 'date') {
+                    this.terminal.writeln(new Date().toString());
+                } else if (cmd === 'clear') {
+                    this.terminal.clear();
+                } else if (cmd === 'exit') {
+                    this.terminal.writeln('Closing terminal session...');
+                    setTimeout(() => {
+                        this.terminal.clear();
+                        this.terminal.writeln('Terminal session closed.');
+                        this.terminal.writeln('');
+                        this.terminal.writeln('Click "Restart Terminal" to start a new session.');
+                    }, 1000);
+                    return;
+                } else {
+                    this.terminal.writeln(`Command not found: ${cmd}`);
+                    this.terminal.writeln('Type "help" for available commands.');
+                }
+                
+                this.terminal.write('$ ');
+            }
+
+            handleLogin = (e) => {
+                e.preventDefault();
+                const token = this.state.authToken;
+                
+                if (!token) {
+                    this.setState({ error: 'Please enter an authentication token' });
+                    return;
+                }
+                
+                // Save token to localStorage
+                localStorage.setItem('dockerVMAuthToken', token);
+                
+                this.setState({ 
+                    isAuthenticated: true,
+                    error: null
+                });
+            }
+
+            handleLogout = () => {
+                localStorage.removeItem('dockerVMAuthToken');
+                this.setState({
+                    isAuthenticated: false,
+                    authToken: '',
+                    vmStatus: 'stopped',
+                    terminalReady: false
+                });
+                
+                if (this.terminal) {
+                    this.terminal.dispose();
+                    this.terminal = null;
+                }
+            }
+
+            handleAuthTokenChange = (e) => {
+                this.setState({ authToken: e.target.value });
+            }
+
+            handleTabChange = (tab) => {
+                this.setState({ activeTab: tab });
+            }
+            
+            handleVMChange = (vmId) => {
+                this.setState({ selectedVM: vmId });
+            }
+            
+            handleStartVM = () => {
+                this.setState({ 
+                    vmStatus: 'starting',
+                    error: null
+                });
+                
+                // Simulate VM startup
+                setTimeout(() => {
+                    this.setState({ 
+                        vmStatus: 'running',
+                        terminalReady: false // Reset terminal to initialize it again
+                    });
+                }, 3000);
+            }
+            
+            handleStopVM = () => {
+                this.setState({ vmStatus: 'stopped' });
+                
+                if (this.terminal) {
+                    this.terminal.dispose();
+                    this.terminal = null;
+                }
+            }
+            
+            handleRestartTerminal = () => {
+                if (this.terminal) {
+                    this.terminal.dispose();
+                    this.terminal = null;
+                }
+                
+                this.setState({ terminalReady: false }, () => {
+                    this.initTerminal();
+                });
+            }
+
+            renderLoginForm() {
+                return (
+                    <div className="auth-container">
+                        <h2>Docker VM Authentication</h2>
+                        {this.state.error && <div className="error-message">{this.state.error}</div>}
+                        <form onSubmit={this.handleLogin} className="auth-form">
+                            <div className="form-group">
+                                <label htmlFor="authToken">Authentication Token</label>
+                                <input
+                                    type="password"
+                                    id="authToken"
+                                    value={this.state.authToken}
+                                    onChange={this.handleAuthTokenChange}
+                                    placeholder="Enter your Docker VM token"
+                                    required
+                                />
+                            </div>
+                            <button type="submit" className="btn-primary">Login</button>
+                            <div className="demo-notice mt-4">
+                                <p>Demo Mode: Enter any value as token to see the demo interface</p>
+                            </div>
+                        </form>
+                    </div>
+                );
+            }
+
+            renderTerminalTab() {
+                const { vmStatus } = this.state;
+                
+                if (vmStatus === 'stopped') {
+                    return (
+                        <div className="terminal-placeholder">
+                            <div className="terminal-message">
+                                <h3>Terminal Not Available</h3>
+                                <p>Start the Docker VM to access the terminal.</p>
+                                <button onClick={this.handleStartVM} className="btn-primary mt-4">Start VM</button>
+                            </div>
+                        </div>
+                    );
+                }
+                
+                if (vmStatus === 'starting') {
+                    return (
+                        <div className="terminal-placeholder">
+                            <div className="terminal-message">
+                                <h3>Starting Docker VM...</h3>
+                                <div className="loading-spinner"></div>
+                                <p>This may take a few moments.</p>
+                            </div>
+                        </div>
+                    );
+                }
+                
+                return (
+                    <div className="terminal-container">
+                        <div className="terminal-header">
+                            <div className="terminal-title">Docker VM Terminal</div>
+                            <div className="terminal-controls">
+                                <button onClick={this.handleRestartTerminal} className="btn-secondary btn-sm">Restart Terminal</button>
+                            </div>
+                        </div>
+                        <div className="terminal" ref={this.terminalRef}></div>
+                    </div>
+                );
+            }
+
+            renderDesktopTab() {
+                const { vmStatus } = this.state;
+                
+                if (vmStatus === 'stopped') {
+                    return (
+                        <div className="desktop-placeholder">
+                            <div className="desktop-message">
+                                <h3>Desktop Not Available</h3>
+                                <p>Start the Docker VM to access the desktop environment.</p>
+                                <button onClick={this.handleStartVM} className="btn-primary mt-4">Start VM</button>
+                            </div>
+                        </div>
+                    );
+                }
+                
+                if (vmStatus === 'starting') {
+                    return (
+                        <div className="desktop-placeholder">
+                            <div className="desktop-message">
+                                <h3>Starting Docker VM...</h3>
+                                <div className="loading-spinner"></div>
+                                <p>This may take a few moments.</p>
+                            </div>
+                        </div>
+                    );
+                }
+                
+                return (
+                    <div className="desktop-container">
+                        <div className="desktop-header">
+                            <div className="desktop-title">Docker VM Desktop</div>
+                            <div className="desktop-controls">
+                                <button onClick={() => alert('Fullscreen mode would be enabled in a real implementation')} className="btn-secondary btn-sm">Fullscreen</button>
+                            </div>
+                        </div>
+                        <div className="desktop-frame">
+                            <div className="desktop-demo">
+                                <div className="desktop-demo-header">
+                                    <div className="desktop-demo-title">Ubuntu LXDE Desktop (Demo)</div>
+                                    <div className="desktop-demo-controls">
+                                        <span className="desktop-demo-control">−</span>
+                                        <span className="desktop-demo-control">□</span>
+                                        <span className="desktop-demo-control">×</span>
+                                    </div>
+                                </div>
+                                <div className="desktop-demo-content">
+                                    <div className="desktop-demo-sidebar">
+                                        <div className="desktop-demo-icon">🖥️</div>
+                                        <div className="desktop-demo-icon">📁</div>
+                                        <div className="desktop-demo-icon">🌐</div>
+                                        <div className="desktop-demo-icon">📝</div>
+                                        <div className="desktop-demo-icon">⚙️</div>
+                                    </div>
+                                    <div className="desktop-demo-main">
+                                        <div className="desktop-demo-window">
+                                            <div className="desktop-demo-window-header">
+                                                <span>Terminal</span>
+                                                <span className="desktop-demo-window-close">×</span>
+                                            </div>
+                                            <div className="desktop-demo-window-content">
+                                                <pre>
+                                                    hackbox@ubuntu:~$ ls<br/>
+                                                    Documents  Downloads  Pictures  Videos<br/>
+                                                    Desktop    Music      Public    hackbox.txt<br/>
+                                                    hackbox@ubuntu:~$ _
+                                                </pre>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div className="desktop-demo-footer">
+                                    <div className="desktop-demo-start">Start</div>
+                                    <div className="desktop-demo-taskbar">
+                                        <span>Terminal</span>
+                                    </div>
+                                    <div className="desktop-demo-time">{new Date().toLocaleTimeString()}</div>
+                                </div>
+                            </div>
+                            <div className="desktop-message">
+                                <p>This is a simulated desktop for demonstration purposes.</p>
+                                <p>In a real implementation, this would be a noVNC connection to a Docker container.</p>
+                            </div>
+                        </div>
+                    </div>
+                );
+            }
+
+            renderSettingsTab() {
+                const { availableVMs, selectedVM } = this.state;
+                
+                return (
+                    <div className="settings-container">
+                        <h2>VM Settings</h2>
+                        
+                        <div className="vm-selection">
+                            <h3>Select VM Image</h3>
+                            <div className="vm-options">
+                                {availableVMs.map(vm => (
+                                    <div 
+                                        key={vm.id}
+                                        className={`vm-option ${selectedVM === vm.id ? 'selected' : ''}`}
+                                        onClick={() => this.handleVMChange(vm.id)}
+                                    >
+                                        <div className="vm-option-icon">{vm.icon}</div>
+                                        <div className="vm-option-details">
+                                            <h4>{vm.name}</h4>
+                                            <p>{vm.description}</p>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                        
+                        <div className="vm-resources mt-4">
+                            <h3>Resource Allocation</h3>
+                            <div className="form-group">
+                                <label htmlFor="cpu">CPU Cores</label>
+                                <select id="cpu" defaultValue="1">
+                                    <option value="1">1 Core</option>
+                                    <option value="2">2 Cores</option>
+                                    <option value="4">4 Cores</option>
+                                </select>
+                            </div>
+                            <div className="form-group">
+                                <label htmlFor="memory">Memory</label>
+                                <select id="memory" defaultValue="1024">
+                                    <option value="512">512 MB</option>
+                                    <option value="1024">1 GB</option>
+                                    <option value="2048">2 GB</option>
+                                    <option value="4096">4 GB</option>
+                                </select>
+                            </div>
+                            <div className="form-group">
+                                <label htmlFor="storage">Storage</label>
+                                <select id="storage" defaultValue="10">
+                                    <option value="5">5 GB</option>
+                                    <option value="10">10 GB</option>
+                                    <option value="20">20 GB</option>
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <div className="vm-actions mt-4">
+                            <button className="btn-primary" disabled={this.state.vmStatus !== 'stopped'}>
+                                Apply Settings
+                            </button>
+                            <p className="settings-note">
+                                Note: Settings can only be changed when the VM is stopped.
+                            </p>
+                        </div>
+                    </div>
+                );
+            }
+
+            render() {
+                if (!this.state.isAuthenticated) {
+                    return this.renderLoginForm();
+                }
+                
+                const { activeTab, vmStatus, loading, error, demoMode } = this.state;
+                
+                return (
+                    <div className="docker-vm-container">
+                        <div className="docker-vm-header">
+                            <h1>HackBox Docker VM</h1>
+                            <div className="controls">
+                                <a href="index.html">Back to Home</a>
+                                <button onClick={this.handleLogout} className="btn-logout">Logout</button>
+                            </div>
+                        </div>
+                        
+                        {error && <div className="error-message">{error}</div>}
+                        {demoMode && (
+                            <div className="demo-notice">
+                                <p>Demo Mode: This is a simulated Docker VM experience. For full functionality, run HackBox locally.</p>
+                            </div>
+                        )}
+                        
+                        <div className="vm-status-bar">
+                            <div className="vm-info">
+                                <span className="vm-name">
+                                    {this.state.availableVMs.find(vm => vm.id === this.state.selectedVM)?.name || 'Ubuntu LXDE'}
+                                </span>
+                                <span className={`vm-status-badge ${vmStatus}`}>
+                                    {vmStatus.charAt(0).toUpperCase() + vmStatus.slice(1)}
+                                </span>
+                            </div>
+                            <div className="vm-controls">
+                                {vmStatus === 'stopped' ? (
+                                    <button onClick={this.handleStartVM} className="btn-success">Start VM</button>
+                                ) : vmStatus === 'running' ? (
+                                    <button onClick={this.handleStopVM} className="btn-danger">Stop VM</button>
+                                ) : (
+                                    <button disabled className="btn-secondary">Starting...</button>
+                                )}
+                            </div>
+                        </div>
+                        
+                        <div className="docker-vm-tabs">
+                            <div 
+                                className={`tab ${activeTab === 'terminal' ? 'active' : ''}`}
+                                onClick={() => this.handleTabChange('terminal')}
+                            >
+                                Terminal
+                            </div>
+                            <div 
+                                className={`tab ${activeTab === 'desktop' ? 'active' : ''}`}
+                                onClick={() => this.handleTabChange('desktop')}
+                            >
+                                Desktop
+                            </div>
+                            <div 
+                                className={`tab ${activeTab === 'settings' ? 'active' : ''}`}
+                                onClick={() => this.handleTabChange('settings')}
+                            >
+                                Settings
+                            </div>
+                        </div>
+                        
+                        <div className="docker-vm-content">
+                            {loading && <div className="loading-overlay">Loading...</div>}
+                            
+                            {activeTab === 'terminal' && this.renderTerminalTab()}
+                            {activeTab === 'desktop' && this.renderDesktopTab()}
+                            {activeTab === 'settings' && this.renderSettingsTab()}
+                        </div>
+                    </div>
+                );
+            }
+        }
+
+        // Render the React component
+        ReactDOM.render(
+            <DockerVMApp />,
+            document.getElementById('docker-vm-app')
+        );
+    </script>
+</body>
+</html>
