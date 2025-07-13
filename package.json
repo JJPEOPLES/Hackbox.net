@@ -7,7 +7,9 @@
     "start": "docker-compose up -d",
     "stop": "docker-compose down",
     "dev": "netlify dev",
-    "db:init": "netlify db init",
+    "db:init": "node init-db.js && netlify db init",
+    "db:init:sh": "bash init-db.sh",
+    "db:init:bat": "init-db.bat",
     "build": "echo 'No build steps required'",
     "deploy": "netlify deploy",
     "deploy:prod": "netlify deploy --prod"
@@ -23,7 +25,8 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
-    "@netlify/functions": "^2.0.0"
+    "@netlify/functions": "^2.0.0",
+    "@netlify/neon": "^1.0.0"
   },
   "devDependencies": {
     "netlify-cli": "^17.0.0"

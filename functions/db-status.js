@@ -1,26 +1,27 @@
-// Netlify Function to check database status
-// This would be expanded in a real implementation
+// Netlify Function to check database status and demonstrate Neon DB usage
+import { neon } from '@netlify/neon';
 
-exports.handler = async function(event, context) {
+export const handler = async function(event, context) {
   try {
-    // In a real implementation, this would connect to Netlify's NEON database
-    // using the Netlify DB client
+    // Create a SQL client using the NETLIFY_DATABASE_URL environment variable
+    const sql = neon();
     
-    // Example of how you would use Netlify DB in production:
-    // This would be implemented when you run 'netlify db init'
-    // The Netlify CLI will set up the necessary configuration
-    // No need to manually import a package
+    // Query the database to check connection and get current timestamp
+    const result = await sql`SELECT NOW() as current_time`;
     
-    // For now, we'll just return a mock response
+    // Return the database status and timestamp
     return {
       statusCode: 200,
       body: JSON.stringify({
         message: "Database connection successful",
         timestamp: new Date().toISOString(),
+        database_time: result[0].current_time,
         status: "connected"
       })
     };
   } catch (error) {
+    console.error("Database connection error:", error);
+    
     return {
       statusCode: 500,
       body: JSON.stringify({ 

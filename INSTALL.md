@@ -49,17 +49,32 @@ This guide will help you set up and run HackBox, a web-based Ubuntu LXDE environ
 
 3. Deploy to Netlify:
    ```
+   npm run deploy
+   ```
+   or directly:
+   ```
    netlify deploy
    ```
 
 4. For production deployment:
    ```
+   npm run deploy:prod
+   ```
+   or directly:
+   ```
    netlify deploy --prod
    ```
 
-5. (Optional) After successful deployment, you can set up Netlify DB:
+5. (Optional) After successful deployment, you can set up Netlify DB using one of these commands:
    ```
-   netlify db init
+   # For all platforms with Node.js
+   npm run db:init
+   
+   # For Linux/macOS
+   npm run db:init:sh
+   
+   # For Windows
+   npm run db:init:bat
    ```
    This will configure the Netlify NEON database for your project.
 
