@@ -1,0 +1,30 @@
+# Node.js dependencies
+node_modules/
+npm-debug.log
+yarn-error.log
+yarn-debug.log
+
+# Netlify
+.netlify/
+.env
+
+# Docker
+.docker/
+
+# OS specific
+.DS_Store
+Thumbs.db
+
+# IDE specific
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Build files
+dist/
+build/
+
+# Logs
+logs/
+*.log

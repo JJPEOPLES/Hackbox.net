@@ -1,0 +1,17 @@
+version: '3'
+
+services:
+  hackbox:
+    build: .
+    container_name: hackbox
+    ports:
+      - "8080:8080"  # noVNC web interface
+      - "5901:5901"  # VNC port (optional, for direct VNC clients)
+    restart: unless-stopped
+    volumes:
+      - hackbox-data:/home/hackbox  # Persistent storage for user data
+    environment:
+      - VNC_PASSWORD=hackbox  # Default VNC password
+
+volumes:
+  hackbox-data:  # Persistent volume for user data

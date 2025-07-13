@@ -1,0 +1,29 @@
+{
+  "name": "hackbox",
+  "version": "1.0.0",
+  "description": "Ubuntu LXDE in your browser for cybersecurity and Linux learning",
+  "main": "index.html",
+  "scripts": {
+    "start": "docker-compose up -d",
+    "stop": "docker-compose down",
+    "dev": "netlify dev",
+    "db:init": "netlify db init"
+  },
+  "keywords": [
+    "ubuntu",
+    "lxde",
+    "novnc",
+    "cybersecurity",
+    "linux",
+    "browser"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@netlify/db": "^1.0.0",
+    "@netlify/functions": "^2.0.0"
+  },
+  "devDependencies": {
+    "netlify-cli": "^17.0.0"
+  }
+}
