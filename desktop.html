@@ -12,13 +12,40 @@
             <h1>HackBox Ubuntu LXDE</h1>
             <div class="controls">
                 <a href="index.html">Back to Home</a>
-                <a href="#" id="fullscreen-btn">Fullscreen</a>
+                <a href="#" id="fullscreen-btn" style="display: none;">Fullscreen</a>
             </div>
         </div>
-        <div class="novnc-container">
-            <!-- The noVNC client will be loaded in this iframe -->
-            <!-- In production, this would point to your deployed noVNC instance -->
-            <iframe id="novnc-frame" src="/vnc.html?autoconnect=true&resize=remote&password=hackbox"></iframe>
+        <div class="novnc-container" id="novnc-container">
+            <!-- This content will be replaced with the noVNC iframe if running locally -->
+            <div class="desktop-placeholder">
+                <div class="desktop-info">
+                    <h2>Ubuntu LXDE Desktop</h2>
+                    <p>The Ubuntu LXDE desktop environment is only available when running HackBox locally with Docker.</p>
+                    
+                    <div class="desktop-instructions">
+                        <h3>How to Run Locally:</h3>
+                        <ol>
+                            <li>Clone the repository: <code>git clone https://github.com/JJPEOPLES/Hackbox.net</code></li>
+                            <li>Navigate to the project: <code>cd Hackbox.net</code></li>
+                            <li>Start the Docker container: <code>npm start</code></li>
+                            <li>Access the desktop at: <code>http://localhost:8080</code></li>
+                        </ol>
+                    </div>
+                    
+                    <div class="desktop-features">
+                        <h3>Features Available Locally:</h3>
+                        <ul>
+                            <li>Full Ubuntu Linux environment</li>
+                            <li>LXDE desktop environment</li>
+                            <li>Pre-installed cybersecurity tools</li>
+                            <li>Persistent storage</li>
+                        </ul>
+                    </div>
+                    
+                    <a href="index.html" class="back-button">Back to Home</a>
+                    <a href="users.html" class="launch-button">Try User Management Demo</a>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -26,12 +53,14 @@
         // Handle fullscreen functionality
         document.getElementById('fullscreen-btn').addEventListener('click', function() {
             const iframe = document.getElementById('novnc-frame');
-            if (iframe.requestFullscreen) {
-                iframe.requestFullscreen();
-            } else if (iframe.webkitRequestFullscreen) {
-                iframe.webkitRequestFullscreen();
-            } else if (iframe.msRequestFullscreen) {
-                iframe.msRequestFullscreen();
+            if (iframe) {
+                if (iframe.requestFullscreen) {
+                    iframe.requestFullscreen();
+                } else if (iframe.webkitRequestFullscreen) {
+                    iframe.webkitRequestFullscreen();
+                } else if (iframe.msRequestFullscreen) {
+                    iframe.msRequestFullscreen();
+                }
             }
         });
     </script>

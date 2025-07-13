@@ -18,6 +18,8 @@ HackBox is a web-based platform that provides Ubuntu with LXDE desktop environme
 2. Run `docker-compose up -d`
 3. Access the environment at `http://localhost:8080`
 
+Note: The Ubuntu LXDE desktop environment is only available when running locally with Docker. When deployed to Netlify, the desktop page will show instructions on how to run it locally.
+
 ## Deployment
 
 This project can be deployed on Netlify with the following steps:

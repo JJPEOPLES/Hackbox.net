@@ -10,6 +10,22 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
     
+    // Check if we're on the desktop page
+    const novncContainer = document.getElementById('novnc-container');
+    if (novncContainer) {
+        // Check if we're running locally
+        checkIfRunningLocally()
+            .then(isLocal => {
+                if (isLocal) {
+                    // If running locally, load the noVNC iframe
+                    loadNoVNCIframe();
+                }
+            })
+            .catch(error => {
+                console.error('Error checking if running locally:', error);
+            });
+    }
+    
     // Check database status when page loads
     checkDatabaseStatus()
         .then(data => {
@@ -125,5 +141,36 @@ async function handleUserFormSubmit(event) {
         await loadUsers();
     } catch (error) {
         alert('Error saving user data: ' + error.message);
+    }
+}
+
+// Check if we're running locally (localhost or 127.0.0.1)
+async function checkIfRunningLocally() {
+    const hostname = window.location.hostname;
+    return hostname === 'localhost' || hostname === '127.0.0.1';
+}
+
+// Load the noVNC iframe
+function loadNoVNCIframe() {
+    const novncContainer = document.getElementById('novnc-container');
+    if (novncContainer) {
+        // Clear the container
+        novncContainer.innerHTML = '';
+        
+        // Create the iframe
+        const iframe = document.createElement('iframe');
+        iframe.id = 'novnc-frame';
+        iframe.src = '/vnc.html?autoconnect=true&resize=remote&password=hackbox';
+        
+        // Add the iframe to the container
+        novncContainer.appendChild(iframe);
+        
+        // Show the fullscreen button
+        const fullscreenBtn = document.getElementById('fullscreen-btn');
+        if (fullscreenBtn) {
+            fullscreenBtn.style.display = 'inline-block';
+        }
+        
+        console.log('noVNC iframe loaded for local environment');
     }
 }

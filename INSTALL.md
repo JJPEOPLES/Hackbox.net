@@ -83,6 +83,8 @@ This guide will help you set up and run HackBox, a web-based Ubuntu LXDE environ
 - Web interface: `http://localhost:8080`
 - VNC client: `localhost:5901` (password: hackbox)
 
+Note: The Ubuntu LXDE desktop environment is only available when running locally with Docker. When deployed to Netlify, only the web interface and database functionality will be available.
+
 ## Default Credentials
 
 - VNC Password: `hackbox`

@@ -254,6 +254,67 @@ iframe {
     border: none;
 }
 
+/* Desktop placeholder styles */
+.desktop-placeholder {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100%;
+    padding: 2rem;
+    color: white;
+}
+
+.desktop-info {
+    max-width: 800px;
+    background-color: rgba(0, 0, 0, 0.7);
+    padding: 2rem;
+    border-radius: 8px;
+    text-align: center;
+}
+
+.desktop-info h2 {
+    color: #E95420;
+    margin-bottom: 1rem;
+}
+
+.desktop-info p {
+    margin-bottom: 2rem;
+    font-size: 1.1rem;
+}
+
+.desktop-instructions, .desktop-features {
+    text-align: left;
+    margin-bottom: 2rem;
+    background-color: rgba(255, 255, 255, 0.1);
+    padding: 1.5rem;
+    border-radius: 6px;
+}
+
+.desktop-instructions h3, .desktop-features h3 {
+    color: #E95420;
+    margin-bottom: 1rem;
+}
+
+.desktop-instructions ol, .desktop-features ul {
+    padding-left: 1.5rem;
+}
+
+.desktop-instructions li, .desktop-features li {
+    margin-bottom: 0.5rem;
+}
+
+.desktop-info code {
+    background-color: rgba(0, 0, 0, 0.5);
+    padding: 0.2rem 0.4rem;
+    border-radius: 3px;
+    font-family: monospace;
+}
+
+.desktop-info .back-button, .desktop-info .launch-button {
+    display: inline-block;
+    margin: 0.5rem;
+}
+
 /* Utility classes */
 .mt-4 {
     margin-top: 1.5rem;
