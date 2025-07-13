@@ -1,0 +1,608 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HackBox - Docker Management</title>
+    <link rel="stylesheet" href="styles.css">
+    <!-- React and ReactDOM CDN -->
+    <script src="https://unpkg.com/react@17/umd/react.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@17/umd/react-dom.production.min.js" crossorigin></script>
+    <!-- Babel for JSX -->
+    <script src="https://unpkg.com/babel-standalone@6/babel.min.js"></script>
+</head>
+<body>
+    <!-- React app container -->
+    <div id="docker-app"></div>
+
+    <!-- React component for Docker management -->
+    <script type="text/babel">
+        class DockerApp extends React.Component {
+            constructor(props) {
+                super(props);
+                this.state = {
+                    isAuthenticated: false,
+                    authToken: '',
+                    loading: true,
+                    error: null,
+                    dockerStatus: null,
+                    containers: [],
+                    selectedContainer: null,
+                    newContainerForm: {
+                        name: '',
+                        image: '',
+                        ports: ''
+                    },
+                    activeTab: 'status'
+                };
+            }
+
+            componentDidMount() {
+                // Check if user has a saved token
+                const savedToken = localStorage.getItem('dockerAuthToken');
+                if (savedToken) {
+                    this.setState({ 
+                        authToken: savedToken,
+                        isAuthenticated: true
+                    }, () => {
+                        this.fetchDockerStatus();
+                        this.fetchContainers();
+                    });
+                } else {
+                    this.setState({ loading: false });
+                }
+            }
+
+            handleLogin = (e) => {
+                e.preventDefault();
+                const token = this.state.authToken;
+                
+                if (!token) {
+                    this.setState({ error: 'Please enter an authentication token' });
+                    return;
+                }
+                
+                // Save token to localStorage
+                localStorage.setItem('dockerAuthToken', token);
+                
+                this.setState({ 
+                    isAuthenticated: true,
+                    error: null
+                }, () => {
+                    this.fetchDockerStatus();
+                    this.fetchContainers();
+                });
+            }
+
+            handleLogout = () => {
+                localStorage.removeItem('dockerAuthToken');
+                this.setState({
+                    isAuthenticated: false,
+                    authToken: '',
+                    dockerStatus: null,
+                    containers: [],
+                    selectedContainer: null
+                });
+            }
+
+            fetchDockerStatus = async () => {
+                this.setState({ loading: true });
+                
+                try {
+                    const response = await fetch(`/.netlify/functions/docker-proxy/status?token=${this.state.authToken}`);
+                    
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    
+                    const data = await response.json();
+                    this.setState({ 
+                        dockerStatus: data,
+                        loading: false,
+                        error: null
+                    });
+                } catch (error) {
+                    console.error('Error fetching Docker status:', error);
+                    this.setState({ 
+                        error: 'Failed to fetch Docker status. Using demo mode.',
+                        loading: false,
+                        // Use demo data if available in the error response
+                        dockerStatus: {
+                            status: 'demo',
+                            version: '20.10.12 (Demo)',
+                            containers: {
+                                running: 3,
+                                stopped: 2,
+                                total: 5
+                            },
+                            images: 12,
+                            cpu_usage: '23%',
+                            memory_usage: '1.2GB / 8GB',
+                            timestamp: new Date().toISOString()
+                        }
+                    });
+                }
+            }
+
+            fetchContainers = async () => {
+                this.setState({ loading: true });
+                
+                try {
+                    const response = await fetch(`/.netlify/functions/docker-proxy/containers?token=${this.state.authToken}`);
+                    
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    
+                    const data = await response.json();
+                    this.setState({ 
+                        containers: data.containers || [],
+                        loading: false,
+                        error: null
+                    });
+                } catch (error) {
+                    console.error('Error fetching containers:', error);
+                    this.setState({ 
+                        error: 'Failed to fetch containers. Using demo mode.',
+                        loading: false,
+                        // Use demo data
+                        containers: [
+                            {
+                                id: 'c1',
+                                name: 'ubuntu-lxde',
+                                image: 'hackbox/ubuntu-lxde:latest',
+                                status: 'running',
+                                created: '2023-07-01T10:00:00Z',
+                                ports: ['8080:80', '2222:22']
+                            },
+                            {
+                                id: 'c2',
+                                name: 'kali-linux',
+                                image: 'kalilinux/kali-rolling:latest',
+                                status: 'running',
+                                created: '2023-07-02T11:30:00Z',
+                                ports: ['8081:80']
+                            },
+                            {
+                                id: 'c3',
+                                name: 'metasploit',
+                                image: 'metasploitframework/metasploit-framework:latest',
+                                status: 'stopped',
+                                created: '2023-07-03T09:15:00Z',
+                                ports: []
+                            }
+                        ]
+                    });
+                }
+            }
+
+            handleContainerAction = async (id, action) => {
+                this.setState({ loading: true });
+                
+                try {
+                    const response = await fetch(`/.netlify/functions/docker-proxy/${action}?id=${id}&token=${this.state.authToken}`);
+                    
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    
+                    const data = await response.json();
+                    
+                    // Update the container status in the state
+                    const updatedContainers = this.state.containers.map(container => {
+                        if (container.id === id) {
+                            return {
+                                ...container,
+                                status: action === 'start' ? 'running' : 'stopped'
+                            };
+                        }
+                        return container;
+                    });
+                    
+                    this.setState({ 
+                        containers: updatedContainers,
+                        loading: false,
+                        error: null
+                    });
+                    
+                    // Show success message
+                    alert(`Container ${action} successful!`);
+                } catch (error) {
+                    console.error(`Error ${action} container:`, error);
+                    this.setState({ 
+                        error: `Failed to ${action} container. Using demo mode.`,
+                        loading: false
+                    });
+                    
+                    // In demo mode, still update the UI
+                    const updatedContainers = this.state.containers.map(container => {
+                        if (container.id === id) {
+                            return {
+                                ...container,
+                                status: action === 'start' ? 'running' : 'stopped'
+                            };
+                        }
+                        return container;
+                    });
+                    
+                    this.setState({ containers: updatedContainers });
+                    
+                    // Show demo message
+                    alert(`Demo Mode: Container ${id} ${action === 'start' ? 'started' : 'stopped'} successfully!`);
+                }
+            }
+
+            handleCreateContainer = async (e) => {
+                e.preventDefault();
+                this.setState({ loading: true });
+                
+                const { name, image, ports } = this.state.newContainerForm;
+                
+                if (!image) {
+                    this.setState({ 
+                        error: 'Container image is required',
+                        loading: false
+                    });
+                    return;
+                }
+                
+                const containerData = {
+                    name,
+                    image,
+                    ports: ports.split(',').map(p => p.trim()).filter(p => p)
+                };
+                
+                try {
+                    const response = await fetch(`/.netlify/functions/docker-proxy/create?token=${this.state.authToken}`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify(containerData)
+                    });
+                    
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    
+                    const data = await response.json();
+                    
+                    // Add the new container to the state
+                    const newContainer = {
+                        id: data.id,
+                        name: data.name,
+                        image: data.image,
+                        status: 'created',
+                        created: new Date().toISOString(),
+                        ports: containerData.ports
+                    };
+                    
+                    this.setState({ 
+                        containers: [...this.state.containers, newContainer],
+                        loading: false,
+                        error: null,
+                        newContainerForm: {
+                            name: '',
+                            image: '',
+                            ports: ''
+                        }
+                    });
+                    
+                    // Show success message
+                    alert('Container created successfully!');
+                } catch (error) {
+                    console.error('Error creating container:', error);
+                    this.setState({ 
+                        error: 'Failed to create container. Using demo mode.',
+                        loading: false
+                    });
+                    
+                    // In demo mode, still update the UI
+                    const newContainer = {
+                        id: 'c' + Math.floor(Math.random() * 1000),
+                        name: name || `container-${Date.now()}`,
+                        image: image,
+                        status: 'created',
+                        created: new Date().toISOString(),
+                        ports: containerData.ports
+                    };
+                    
+                    this.setState({ 
+                        containers: [...this.state.containers, newContainer],
+                        newContainerForm: {
+                            name: '',
+                            image: '',
+                            ports: ''
+                        }
+                    });
+                    
+                    // Show demo message
+                    alert(`Demo Mode: Container ${newContainer.name} created successfully!`);
+                }
+            }
+
+            handleFormChange = (e) => {
+                const { name, value } = e.target;
+                this.setState({
+                    newContainerForm: {
+                        ...this.state.newContainerForm,
+                        [name]: value
+                    }
+                });
+            }
+
+            handleAuthTokenChange = (e) => {
+                this.setState({ authToken: e.target.value });
+            }
+
+            handleTabChange = (tab) => {
+                this.setState({ activeTab: tab });
+            }
+
+            renderLoginForm() {
+                return (
+                    <div className="auth-container">
+                        <h2>Docker Management Authentication</h2>
+                        {this.state.error && <div className="error-message">{this.state.error}</div>}
+                        <form onSubmit={this.handleLogin} className="auth-form">
+                            <div className="form-group">
+                                <label htmlFor="authToken">Authentication Token</label>
+                                <input
+                                    type="password"
+                                    id="authToken"
+                                    value={this.state.authToken}
+                                    onChange={this.handleAuthTokenChange}
+                                    placeholder="Enter your Docker API token"
+                                    required
+                                />
+                            </div>
+                            <button type="submit" className="btn-primary">Login</button>
+                            <div className="demo-notice mt-4">
+                                <p>Demo Mode: Enter any value as token to see the demo interface</p>
+                            </div>
+                        </form>
+                    </div>
+                );
+            }
+
+            renderStatusTab() {
+                const { dockerStatus } = this.state;
+                
+                if (!dockerStatus) {
+                    return <div className="loading">Loading Docker status...</div>;
+                }
+                
+                return (
+                    <div className="docker-status">
+                        <h2>Docker Status</h2>
+                        <div className="status-grid">
+                            <div className="status-card">
+                                <h3>Engine</h3>
+                                <p><strong>Status:</strong> {dockerStatus.status}</p>
+                                <p><strong>Version:</strong> {dockerStatus.version}</p>
+                            </div>
+                            <div className="status-card">
+                                <h3>Containers</h3>
+                                <p><strong>Running:</strong> {dockerStatus.containers.running}</p>
+                                <p><strong>Stopped:</strong> {dockerStatus.containers.stopped}</p>
+                                <p><strong>Total:</strong> {dockerStatus.containers.total}</p>
+                            </div>
+                            <div className="status-card">
+                                <h3>Resources</h3>
+                                <p><strong>Images:</strong> {dockerStatus.images}</p>
+                                <p><strong>CPU Usage:</strong> {dockerStatus.cpu_usage}</p>
+                                <p><strong>Memory:</strong> {dockerStatus.memory_usage}</p>
+                            </div>
+                        </div>
+                        <div className="status-actions">
+                            <button onClick={this.fetchDockerStatus} className="btn-secondary">Refresh Status</button>
+                        </div>
+                    </div>
+                );
+            }
+
+            renderContainersTab() {
+                const { containers, loading } = this.state;
+                
+                if (loading) {
+                    return <div className="loading">Loading containers...</div>;
+                }
+                
+                return (
+                    <div className="docker-containers">
+                        <h2>Containers</h2>
+                        <div className="container-list">
+                            <table className="container-table">
+                                <thead>
+                                    <tr>
+                                        <th>Name</th>
+                                        <th>Image</th>
+                                        <th>Status</th>
+                                        <th>Created</th>
+                                        <th>Ports</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {containers.map(container => (
+                                        <tr key={container.id}>
+                                            <td>{container.name}</td>
+                                            <td>{container.image}</td>
+                                            <td>
+                                                <span className={`status-badge ${container.status}`}>
+                                                    {container.status}
+                                                </span>
+                                            </td>
+                                            <td>{new Date(container.created).toLocaleString()}</td>
+                                            <td>{container.ports.join(', ')}</td>
+                                            <td className="container-actions">
+                                                {container.status === 'running' ? (
+                                                    <button 
+                                                        onClick={() => this.handleContainerAction(container.id, 'stop')}
+                                                        className="btn-danger btn-sm"
+                                                    >
+                                                        Stop
+                                                    </button>
+                                                ) : (
+                                                    <button 
+                                                        onClick={() => this.handleContainerAction(container.id, 'start')}
+                                                        className="btn-success btn-sm"
+                                                    >
+                                                        Start
+                                                    </button>
+                                                )}
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                        <div className="container-actions mt-4">
+                            <button onClick={this.fetchContainers} className="btn-secondary">Refresh Containers</button>
+                        </div>
+                    </div>
+                );
+            }
+
+            renderCreateTab() {
+                const { newContainerForm } = this.state;
+                
+                return (
+                    <div className="create-container">
+                        <h2>Create Container</h2>
+                        <form onSubmit={this.handleCreateContainer} className="container-form">
+                            <div className="form-group">
+                                <label htmlFor="name">Container Name (optional)</label>
+                                <input
+                                    type="text"
+                                    id="name"
+                                    name="name"
+                                    value={newContainerForm.name}
+                                    onChange={this.handleFormChange}
+                                    placeholder="e.g., my-ubuntu"
+                                />
+                            </div>
+                            <div className="form-group">
+                                <label htmlFor="image">Image *</label>
+                                <input
+                                    type="text"
+                                    id="image"
+                                    name="image"
+                                    value={newContainerForm.image}
+                                    onChange={this.handleFormChange}
+                                    placeholder="e.g., ubuntu:latest"
+                                    required
+                                />
+                            </div>
+                            <div className="form-group">
+                                <label htmlFor="ports">Ports (comma-separated)</label>
+                                <input
+                                    type="text"
+                                    id="ports"
+                                    name="ports"
+                                    value={newContainerForm.ports}
+                                    onChange={this.handleFormChange}
+                                    placeholder="e.g., 8080:80, 2222:22"
+                                />
+                            </div>
+                            <button type="submit" className="btn-primary">Create Container</button>
+                        </form>
+                        <div className="container-templates mt-4">
+                            <h3>Quick Templates</h3>
+                            <div className="template-grid">
+                                <div className="template-card" onClick={() => this.setState({
+                                    newContainerForm: {
+                                        name: 'ubuntu-lxde',
+                                        image: 'hackbox/ubuntu-lxde:latest',
+                                        ports: '8080:80, 2222:22'
+                                    }
+                                })}>
+                                    <h4>Ubuntu LXDE</h4>
+                                    <p>Full Ubuntu desktop environment with LXDE</p>
+                                </div>
+                                <div className="template-card" onClick={() => this.setState({
+                                    newContainerForm: {
+                                        name: 'kali-linux',
+                                        image: 'kalilinux/kali-rolling:latest',
+                                        ports: '8081:80'
+                                    }
+                                })}>
+                                    <h4>Kali Linux</h4>
+                                    <p>Penetration testing and ethical hacking Linux distribution</p>
+                                </div>
+                                <div className="template-card" onClick={() => this.setState({
+                                    newContainerForm: {
+                                        name: 'metasploit',
+                                        image: 'metasploitframework/metasploit-framework:latest',
+                                        ports: ''
+                                    }
+                                })}>
+                                    <h4>Metasploit</h4>
+                                    <p>Penetration testing framework</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                );
+            }
+
+            render() {
+                if (!this.state.isAuthenticated) {
+                    return this.renderLoginForm();
+                }
+                
+                const { activeTab, loading, error } = this.state;
+                
+                return (
+                    <div className="docker-container">
+                        <div className="docker-header">
+                            <h1>HackBox Docker Management</h1>
+                            <div className="controls">
+                                <a href="index.html">Back to Home</a>
+                                <button onClick={this.handleLogout} className="btn-logout">Logout</button>
+                            </div>
+                        </div>
+                        
+                        {error && <div className="error-message">{error}</div>}
+                        
+                        <div className="docker-tabs">
+                            <div 
+                                className={`tab ${activeTab === 'status' ? 'active' : ''}`}
+                                onClick={() => this.handleTabChange('status')}
+                            >
+                                Status
+                            </div>
+                            <div 
+                                className={`tab ${activeTab === 'containers' ? 'active' : ''}`}
+                                onClick={() => this.handleTabChange('containers')}
+                            >
+                                Containers
+                            </div>
+                            <div 
+                                className={`tab ${activeTab === 'create' ? 'active' : ''}`}
+                                onClick={() => this.handleTabChange('create')}
+                            >
+                                Create
+                            </div>
+                        </div>
+                        
+                        <div className="docker-content">
+                            {loading && <div className="loading-overlay">Loading...</div>}
+                            
+                            {activeTab === 'status' && this.renderStatusTab()}
+                            {activeTab === 'containers' && this.renderContainersTab()}
+                            {activeTab === 'create' && this.renderCreateTab()}
+                        </div>
+                    </div>
+                );
+            }
+        }
+
+        // Render the React component
+        ReactDOM.render(
+            <DockerApp />,
+            document.getElementById('docker-app')
+        );
+    </script>
+</body>
+</html>
