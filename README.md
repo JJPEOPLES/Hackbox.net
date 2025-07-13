@@ -22,8 +22,15 @@ This project can be deployed on Netlify with the following steps:
 
 1. Push the repository to GitHub
 2. Connect your GitHub repository to Netlify
-3. Set up Netlify DB with `netlify db init`
-4. Deploy your site
+3. Deploy your site through the Netlify UI or CLI:
+   ```
+   netlify deploy --prod
+   ```
+4. (Optional) Set up Netlify DB after deployment:
+   ```
+   netlify db init
+   ```
+   This will configure the Netlify NEON database for your project
 
 ## Technologies Used
 

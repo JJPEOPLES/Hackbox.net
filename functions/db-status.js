@@ -7,9 +7,9 @@ exports.handler = async function(event, context) {
     // using the Netlify DB client
     
     // Example of how you would use Netlify DB in production:
-    // const { createClient } = require('@netlify/db');
-    // const netlifyDb = createClient();
-    // const result = await netlifyDb.query('SELECT NOW()');
+    // This would be implemented when you run 'netlify db init'
+    // The Netlify CLI will set up the necessary configuration
+    // No need to manually import a package
     
     // For now, we'll just return a mock response
     return {

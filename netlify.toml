@@ -1,6 +1,6 @@
 [build]
   publish = "."
-  command = "echo 'No build command required'"
+  command = "chmod +x ./build.sh && ./build.sh"
 
 [dev]
   framework = "#static"
@@ -13,6 +13,6 @@
 [functions]
   directory = "functions"
 
-# For Netlify DB (NEON) integration
+# Set Node.js version
 [build.environment]
   NODE_VERSION = "18"

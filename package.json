@@ -7,7 +7,10 @@
     "start": "docker-compose up -d",
     "stop": "docker-compose down",
     "dev": "netlify dev",
-    "db:init": "netlify db init"
+    "db:init": "netlify db init",
+    "build": "echo 'No build steps required'",
+    "deploy": "netlify deploy",
+    "deploy:prod": "netlify deploy --prod"
   },
   "keywords": [
     "ubuntu",
@@ -20,7 +23,6 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
-    "@netlify/db": "^1.0.0",
     "@netlify/functions": "^2.0.0"
   },
   "devDependencies": {
