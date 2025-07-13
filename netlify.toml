@@ -1,6 +1,6 @@
 [build]
   publish = "."
-  command = "chmod +x ./build.sh && ./build.sh"
+  command = "echo 'Node.js version:' && node --version && echo 'Static files ready for deployment.'"
 
 [dev]
   framework = "#static"
@@ -15,4 +15,4 @@
 
 # Set Node.js version
 [build.environment]
-  NODE_VERSION = "18"
+  NODE_VERSION = "16.19.0"

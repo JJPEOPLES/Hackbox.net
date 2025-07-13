@@ -1,7 +1,7 @@
 // Netlify Function to handle user data in the Neon database
-import { neon } from '@netlify/neon';
+const { neon } = require('@netlify/neon');
 
-export const handler = async function(event, context) {
+exports.handler = async function(event, context) {
   // Create a SQL client using the NETLIFY_DATABASE_URL environment variable
   const sql = neon();
   

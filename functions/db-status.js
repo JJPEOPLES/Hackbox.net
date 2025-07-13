@@ -1,7 +1,7 @@
 // Netlify Function to check database status and demonstrate Neon DB usage
-import { neon } from '@netlify/neon';
+const { neon } = require('@netlify/neon');
 
-export const handler = async function(event, context) {
+exports.handler = async function(event, context) {
   try {
     // Create a SQL client using the NETLIFY_DATABASE_URL environment variable
     const sql = neon();
