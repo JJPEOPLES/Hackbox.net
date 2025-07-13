@@ -1,0 +1,1464 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HackBox - Real Docker VM</title>
+    <link rel="stylesheet" href="styles.css">
+    <!-- xterm.js for terminal emulation -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm@4.19.0/css/xterm.css" />
+    <script src="https://cdn.jsdelivr.net/npm/xterm@4.19.0/lib/xterm.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xterm-addon-fit@0.5.0/lib/xterm-addon-fit.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xterm-addon-web-links@0.4.0/lib/xterm-addon-web-links.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xterm-addon-search@0.8.0/lib/xterm-addon-search.js"></script>
+    <style>
+        body {
+            background-color: #222;
+            color: #f5f5f5;
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .header {
+            background-color: #333;
+            padding: 1rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid #444;
+        }
+        
+        .header h1 {
+            color: #E95420;
+            margin: 0;
+        }
+        
+        .controls {
+            display: flex;
+            gap: 1rem;
+        }
+        
+        .controls a, .controls button {
+            background-color: rgba(255, 255, 255, 0.1);
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 4px;
+            cursor: pointer;
+            text-decoration: none;
+            font-size: 14px;
+        }
+        
+        .controls button:hover, .controls a:hover {
+            background-color: rgba(255, 255, 255, 0.2);
+        }
+        
+        .main-container {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+        }
+        
+        .sidebar {
+            width: 250px;
+            background-color: #2a2a2a;
+            padding: 1rem;
+            border-right: 1px solid #444;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .vm-status {
+            background-color: #333;
+            padding: 1rem;
+            border-radius: 6px;
+            margin-bottom: 1rem;
+        }
+        
+        .status-badge {
+            display: inline-block;
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.875rem;
+            text-transform: uppercase;
+            margin-top: 0.5rem;
+        }
+        
+        .status-badge.running {
+            background-color: rgba(40, 167, 69, 0.2);
+            color: #28a745;
+        }
+        
+        .status-badge.stopped {
+            background-color: rgba(220, 53, 69, 0.2);
+            color: #dc3545;
+        }
+        
+        .status-badge.starting {
+            background-color: rgba(255, 193, 7, 0.2);
+            color: #ffc107;
+        }
+        
+        .vm-actions {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+        
+        .btn-primary {
+            background-color: #E95420;
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        
+        .btn-success {
+            background-color: #28a745;
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        
+        .btn-danger {
+            background-color: #dc3545;
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        
+        .btn-secondary {
+            background-color: rgba(255, 255, 255, 0.1);
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        
+        .vm-info {
+            margin-top: auto;
+            background-color: #333;
+            padding: 1rem;
+            border-radius: 6px;
+            font-size: 0.875rem;
+        }
+        
+        .vm-info h3 {
+            margin-top: 0;
+            color: #E95420;
+            font-size: 1rem;
+        }
+        
+        .vm-info p {
+            margin: 0.5rem 0;
+        }
+        
+        .content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        
+        .tabs {
+            display: flex;
+            background-color: #333;
+            border-bottom: 1px solid #444;
+        }
+        
+        .tab {
+            padding: 0.75rem 1.5rem;
+            cursor: pointer;
+            transition: background-color 0.2s;
+            border-bottom: 3px solid transparent;
+        }
+        
+        .tab:hover {
+            background-color: rgba(255, 255, 255, 0.05);
+        }
+        
+        .tab.active {
+            border-bottom: 3px solid #E95420;
+            font-weight: bold;
+        }
+        
+        .tab-content {
+            flex: 1;
+            display: none;
+            overflow: hidden;
+        }
+        
+        .tab-content.active {
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .terminal-container {
+            flex: 1;
+            background-color: #1e1e1e;
+            position: relative;
+        }
+        
+        .terminal {
+            width: 100%;
+            height: 100%;
+        }
+        
+        .terminal-toolbar {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            z-index: 10;
+            display: flex;
+            gap: 0.5rem;
+        }
+        
+        .terminal-toolbar button {
+            background-color: rgba(0, 0, 0, 0.5);
+            color: white;
+            border: none;
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            cursor: pointer;
+        }
+        
+        .desktop-container {
+            flex: 1;
+            position: relative;
+            background-color: #1e1e1e;
+        }
+        
+        .desktop-iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+        }
+        
+        .desktop-toolbar {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            z-index: 10;
+            display: flex;
+            gap: 0.5rem;
+        }
+        
+        .desktop-toolbar button {
+            background-color: rgba(0, 0, 0, 0.5);
+            color: white;
+            border: none;
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            cursor: pointer;
+        }
+        
+        .settings-container {
+            flex: 1;
+            padding: 1rem;
+            overflow: auto;
+        }
+        
+        .settings-section {
+            background-color: #333;
+            padding: 1rem;
+            border-radius: 6px;
+            margin-bottom: 1rem;
+        }
+        
+        .settings-section h2 {
+            margin-top: 0;
+            color: #E95420;
+            font-size: 1.25rem;
+        }
+        
+        .form-group {
+            margin-bottom: 1rem;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+        }
+        
+        .form-group select, .form-group input {
+            width: 100%;
+            padding: 0.5rem;
+            background-color: rgba(255, 255, 255, 0.1);
+            color: white;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 4px;
+        }
+        
+        .loading-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(0, 0, 0, 0.7);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+        }
+        
+        .loading-spinner {
+            display: inline-block;
+            width: 50px;
+            height: 50px;
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top-color: #E95420;
+            animation: spin 1s ease-in-out infinite;
+            margin-bottom: 1rem;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        .connection-form {
+            background-color: #333;
+            padding: 2rem;
+            border-radius: 8px;
+            max-width: 500px;
+            margin: 4rem auto;
+        }
+        
+        .connection-form h2 {
+            margin-top: 0;
+            color: #E95420;
+        }
+        
+        .error-message {
+            background-color: rgba(220, 53, 69, 0.2);
+            color: #dc3545;
+            padding: 0.75rem;
+            border-radius: 4px;
+            margin-bottom: 1rem;
+        }
+        
+        .info-message {
+            background-color: rgba(13, 202, 240, 0.2);
+            color: #0dcaf0;
+            padding: 0.75rem;
+            border-radius: 4px;
+            margin-bottom: 1rem;
+        }
+    </style>
+</head>
+<body>
+    <div id="app">
+        <!-- Connection form will be shown initially -->
+        <div class="connection-form" id="connection-form">
+            <h2>Connect to Docker Host</h2>
+            <div class="info-message">
+                <p>Enter the details of your Docker host to connect. This could be:</p>
+                <ul>
+                    <li>A Render.com web service running Docker</li>
+                    <li>Your own Docker host with exposed API</li>
+                    <li>A cloud-based Docker service</li>
+                </ul>
+            </div>
+            <div class="error-message" id="connection-error" style="display: none;"></div>
+            <div class="form-group">
+                <label for="docker-host">Docker Host URL</label>
+                <input type="text" id="docker-host" placeholder="https://your-docker-host.com" value="https://docker-api.onrender.com">
+            </div>
+            <div class="form-group">
+                <label for="api-key">API Key (if required)</label>
+                <input type="password" id="api-key" placeholder="Your API key">
+            </div>
+            <div class="form-group">
+                <label for="vm-type">VM Type</label>
+                <select id="vm-type">
+                    <option value="ubuntu-lxde">Ubuntu LXDE</option>
+                    <option value="kali-linux">Kali Linux</option>
+                    <option value="parrot-sec">Parrot Security</option>
+                </select>
+            </div>
+            <button class="btn-primary" id="connect-btn">Connect</button>
+        </div>
+        
+        <!-- Main interface will be shown after connection -->
+        <div id="main-interface" style="display: none; height: 100vh; display: flex; flex-direction: column;">
+            <div class="header">
+                <h1>HackBox Docker VM</h1>
+                <div class="controls">
+                    <a href="index.html">Back to Home</a>
+                    <button id="disconnect-btn">Disconnect</button>
+                </div>
+            </div>
+            
+            <div class="main-container">
+                <div class="sidebar">
+                    <div class="vm-status">
+                        <h3 id="vm-name">Ubuntu LXDE</h3>
+                        <div id="vm-status-badge" class="status-badge stopped">Stopped</div>
+                        <div class="vm-actions" style="margin-top: 1rem;">
+                            <button id="start-vm-btn" class="btn-success">Start VM</button>
+                            <button id="stop-vm-btn" class="btn-danger" style="display: none;">Stop VM</button>
+                            <button id="restart-vm-btn" class="btn-secondary" style="display: none;">Restart VM</button>
+                        </div>
+                    </div>
+                    
+                    <div class="vm-info">
+                        <h3>VM Information</h3>
+                        <p><strong>Host:</strong> <span id="vm-host">Not connected</span></p>
+                        <p><strong>IP:</strong> <span id="vm-ip">-</span></p>
+                        <p><strong>CPU:</strong> <span id="vm-cpu">-</span></p>
+                        <p><strong>Memory:</strong> <span id="vm-memory">-</span></p>
+                        <p><strong>Uptime:</strong> <span id="vm-uptime">-</span></p>
+                    </div>
+                </div>
+                
+                <div class="content">
+                    <div class="tabs">
+                        <div class="tab active" data-tab="terminal">Terminal</div>
+                        <div class="tab" data-tab="desktop">Desktop</div>
+                        <div class="tab" data-tab="settings">Settings</div>
+                    </div>
+                    
+                    <div class="tab-content active" id="terminal-tab">
+                        <div class="terminal-container">
+                            <div class="terminal" id="terminal"></div>
+                            <div class="terminal-toolbar">
+                                <button id="clear-terminal-btn">Clear</button>
+                                <button id="copy-terminal-btn">Copy</button>
+                                <button id="paste-terminal-btn">Paste</button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="tab-content" id="desktop-tab">
+                        <div class="desktop-container">
+                            <iframe id="desktop-iframe" class="desktop-iframe" src="about:blank"></iframe>
+                            <div class="desktop-toolbar">
+                                <button id="fullscreen-btn">Fullscreen</button>
+                                <button id="refresh-desktop-btn">Refresh</button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="tab-content" id="settings-tab">
+                        <div class="settings-container">
+                            <div class="settings-section">
+                                <h2>VM Configuration</h2>
+                                <div class="form-group">
+                                    <label for="cpu-cores">CPU Cores</label>
+                                    <select id="cpu-cores">
+                                        <option value="1">1 Core</option>
+                                        <option value="2" selected>2 Cores</option>
+                                        <option value="4">4 Cores</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label for="memory">Memory</label>
+                                    <select id="memory">
+                                        <option value="512">512 MB</option>
+                                        <option value="1024" selected>1 GB</option>
+                                        <option value="2048">2 GB</option>
+                                        <option value="4096">4 GB</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label for="storage">Storage</label>
+                                    <select id="storage">
+                                        <option value="5">5 GB</option>
+                                        <option value="10" selected>10 GB</option>
+                                        <option value="20">20 GB</option>
+                                    </select>
+                                </div>
+                                <button id="apply-settings-btn" class="btn-primary">Apply Settings</button>
+                                <p class="settings-note" style="font-size: 0.875rem; margin-top: 0.5rem; opacity: 0.7;">
+                                    Note: Settings can only be changed when the VM is stopped.
+                                </p>
+                            </div>
+                            
+                            <div class="settings-section">
+                                <h2>Network Settings</h2>
+                                <div class="form-group">
+                                    <label for="port-forwarding">Port Forwarding</label>
+                                    <input type="text" id="port-forwarding" placeholder="8080:80, 2222:22" value="8080:80, 2222:22">
+                                </div>
+                                <button id="apply-network-btn" class="btn-primary">Apply Network Settings</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="loading-overlay" id="loading-overlay" style="display: none;">
+                <div class="loading-spinner"></div>
+                <div id="loading-message">Loading...</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Global variables
+        let terminal = null;
+        let websocket = null;
+        let vmStatus = 'stopped'; // stopped, starting, running
+        let selectedVM = 'ubuntu-lxde';
+        let dockerHost = '';
+        let apiKey = '';
+        let vmType = 'ubuntu-lxde';
+        let uptimeInterval = null;
+        let startTime = null;
+        
+        // DOM elements
+        const connectionForm = document.getElementById('connection-form');
+        const mainInterface = document.getElementById('main-interface');
+        const connectBtn = document.getElementById('connect-btn');
+        const disconnectBtn = document.getElementById('disconnect-btn');
+        const connectionError = document.getElementById('connection-error');
+        const vmNameElement = document.getElementById('vm-name');
+        const vmStatusBadge = document.getElementById('vm-status-badge');
+        const startVMBtn = document.getElementById('start-vm-btn');
+        const stopVMBtn = document.getElementById('stop-vm-btn');
+        const restartVMBtn = document.getElementById('restart-vm-btn');
+        const vmHostElement = document.getElementById('vm-host');
+        const vmIpElement = document.getElementById('vm-ip');
+        const vmCpuElement = document.getElementById('vm-cpu');
+        const vmMemoryElement = document.getElementById('vm-memory');
+        const vmUptimeElement = document.getElementById('vm-uptime');
+        const desktopIframe = document.getElementById('desktop-iframe');
+        const loadingOverlay = document.getElementById('loading-overlay');
+        const loadingMessage = document.getElementById('loading-message');
+        
+        // Initialize the page
+        document.addEventListener('DOMContentLoaded', function() {
+            // Set up tab switching
+            const tabs = document.querySelectorAll('.tab');
+            tabs.forEach(tab => {
+                tab.addEventListener('click', function() {
+                    const tabName = this.getAttribute('data-tab');
+                    switchTab(tabName);
+                });
+            });
+            
+            // Set up connect button
+            connectBtn.addEventListener('click', connectToDockerHost);
+            
+            // Set up disconnect button
+            disconnectBtn.addEventListener('click', disconnectFromDockerHost);
+            
+            // Set up VM control buttons
+            startVMBtn.addEventListener('click', startVM);
+            stopVMBtn.addEventListener('click', stopVM);
+            restartVMBtn.addEventListener('click', restartVM);
+            
+            // Set up terminal toolbar buttons
+            document.getElementById('clear-terminal-btn').addEventListener('click', clearTerminal);
+            document.getElementById('copy-terminal-btn').addEventListener('click', copyTerminalSelection);
+            document.getElementById('paste-terminal-btn').addEventListener('click', pasteToTerminal);
+            
+            // Set up desktop toolbar buttons
+            document.getElementById('fullscreen-btn').addEventListener('click', toggleFullscreen);
+            document.getElementById('refresh-desktop-btn').addEventListener('click', refreshDesktop);
+            
+            // Set up settings buttons
+            document.getElementById('apply-settings-btn').addEventListener('click', applySettings);
+            document.getElementById('apply-network-btn').addEventListener('click', applyNetworkSettings);
+            
+            // Initialize terminal
+            initTerminal();
+        });
+        
+        // Connect to Docker host
+        function connectToDockerHost() {
+            dockerHost = document.getElementById('docker-host').value.trim();
+            apiKey = document.getElementById('api-key').value.trim();
+            vmType = document.getElementById('vm-type').value;
+            
+            if (!dockerHost) {
+                showConnectionError('Docker Host URL is required');
+                return;
+            }
+            
+            // Show loading overlay
+            showLoading('Connecting to Docker host...');
+            
+            // Simulate API call to connect to Docker host
+            setTimeout(function() {
+                // In a real implementation, this would be an actual API call
+                const success = true; // Simulate successful connection
+                
+                if (success) {
+                    // Update UI
+                    connectionForm.style.display = 'none';
+                    mainInterface.style.display = 'flex';
+                    vmHostElement.textContent = dockerHost;
+                    vmNameElement.textContent = getVMName(vmType);
+                    
+                    // Hide loading overlay
+                    hideLoading();
+                    
+                    // Check VM status
+                    checkVMStatus();
+                } else {
+                    showConnectionError('Failed to connect to Docker host. Please check your credentials and try again.');
+                    hideLoading();
+                }
+            }, 2000);
+        }
+        
+        // Disconnect from Docker host
+        function disconnectFromDockerHost() {
+            // Stop VM if running
+            if (vmStatus === 'running') {
+                stopVM(true); // Force stop
+            }
+            
+            // Clear intervals
+            if (uptimeInterval) {
+                clearInterval(uptimeInterval);
+                uptimeInterval = null;
+            }
+            
+            // Close WebSocket if open
+            if (websocket && websocket.readyState === WebSocket.OPEN) {
+                websocket.close();
+                websocket = null;
+            }
+            
+            // Reset UI
+            connectionForm.style.display = 'block';
+            mainInterface.style.display = 'none';
+            vmStatus = 'stopped';
+            updateVMStatus();
+            
+            // Clear terminal
+            if (terminal) {
+                terminal.clear();
+            }
+            
+            // Clear desktop iframe
+            desktopIframe.src = 'about:blank';
+        }
+        
+        // Check VM status
+        function checkVMStatus() {
+            showLoading('Checking VM status...');
+            
+            // Simulate API call to check VM status
+            setTimeout(function() {
+                // In a real implementation, this would be an actual API call
+                const status = 'stopped'; // Simulate VM is stopped
+                
+                vmStatus = status;
+                updateVMStatus();
+                
+                hideLoading();
+            }, 1500);
+        }
+        
+        // Start VM
+        function startVM() {
+            showLoading('Starting VM...');
+            
+            // Update UI
+            vmStatus = 'starting';
+            updateVMStatus();
+            
+            // Simulate API call to start VM
+            setTimeout(function() {
+                // In a real implementation, this would be an actual API call
+                const success = true; // Simulate successful start
+                
+                if (success) {
+                    vmStatus = 'running';
+                    updateVMStatus();
+                    
+                    // Set start time for uptime calculation
+                    startTime = new Date();
+                    
+                    // Start uptime interval
+                    if (uptimeInterval) {
+                        clearInterval(uptimeInterval);
+                    }
+                    uptimeInterval = setInterval(updateUptime, 1000);
+                    
+                    // Update VM info
+                    vmIpElement.textContent = '192.168.1.' + Math.floor(Math.random() * 254 + 1);
+                    vmCpuElement.textContent = document.getElementById('cpu-cores').value + ' cores';
+                    vmMemoryElement.textContent = document.getElementById('memory').value + ' MB';
+                    
+                    // Connect to terminal
+                    connectTerminal();
+                    
+                    // Load desktop
+                    loadDesktop();
+                    
+                    hideLoading();
+                } else {
+                    vmStatus = 'stopped';
+                    updateVMStatus();
+                    alert('Failed to start VM. Please try again.');
+                    hideLoading();
+                }
+            }, 3000);
+        }
+        
+        // Stop VM
+        function stopVM(force = false) {
+            if (!force) {
+                if (!confirm('Are you sure you want to stop the VM?')) {
+                    return;
+                }
+            }
+            
+            showLoading('Stopping VM...');
+            
+            // Update UI
+            vmStatus = 'stopped';
+            updateVMStatus();
+            
+            // Simulate API call to stop VM
+            setTimeout(function() {
+                // In a real implementation, this would be an actual API call
+                const success = true; // Simulate successful stop
+                
+                if (success) {
+                    // Clear uptime interval
+                    if (uptimeInterval) {
+                        clearInterval(uptimeInterval);
+                        uptimeInterval = null;
+                    }
+                    
+                    // Reset VM info
+                    vmIpElement.textContent = '-';
+                    vmUptimeElement.textContent = '-';
+                    
+                    // Disconnect terminal
+                    if (websocket && websocket.readyState === WebSocket.OPEN) {
+                        websocket.close();
+                        websocket = null;
+                    }
+                    
+                    // Clear terminal
+                    if (terminal) {
+                        terminal.clear();
+                        terminal.writeln('VM stopped. Start the VM to reconnect.');
+                    }
+                    
+                    // Clear desktop iframe
+                    desktopIframe.src = 'about:blank';
+                    
+                    hideLoading();
+                } else {
+                    vmStatus = 'running';
+                    updateVMStatus();
+                    alert('Failed to stop VM. Please try again.');
+                    hideLoading();
+                }
+            }, 2000);
+        }
+        
+        // Restart VM
+        function restartVM() {
+            if (!confirm('Are you sure you want to restart the VM?')) {
+                return;
+            }
+            
+            showLoading('Restarting VM...');
+            
+            // Update UI
+            vmStatus = 'starting';
+            updateVMStatus();
+            
+            // Simulate API call to restart VM
+            setTimeout(function() {
+                // In a real implementation, this would be an actual API call
+                const success = true; // Simulate successful restart
+                
+                if (success) {
+                    vmStatus = 'running';
+                    updateVMStatus();
+                    
+                    // Reset start time for uptime calculation
+                    startTime = new Date();
+                    
+                    // Reconnect terminal
+                    if (websocket && websocket.readyState === WebSocket.OPEN) {
+                        websocket.close();
+                    }
+                    connectTerminal();
+                    
+                    // Reload desktop
+                    refreshDesktop();
+                    
+                    hideLoading();
+                } else {
+                    alert('Failed to restart VM. Please try again.');
+                    hideLoading();
+                }
+            }, 4000);
+        }
+        
+        // Update VM status UI
+        function updateVMStatus() {
+            // Update status badge
+            vmStatusBadge.textContent = vmStatus.charAt(0).toUpperCase() + vmStatus.slice(1);
+            vmStatusBadge.className = 'status-badge ' + vmStatus;
+            
+            // Update VM control buttons
+            if (vmStatus === 'stopped') {
+                startVMBtn.style.display = 'block';
+                stopVMBtn.style.display = 'none';
+                restartVMBtn.style.display = 'none';
+                document.getElementById('apply-settings-btn').disabled = false;
+            } else if (vmStatus === 'running') {
+                startVMBtn.style.display = 'none';
+                stopVMBtn.style.display = 'block';
+                restartVMBtn.style.display = 'block';
+                document.getElementById('apply-settings-btn').disabled = true;
+            } else {
+                startVMBtn.style.display = 'none';
+                stopVMBtn.style.display = 'block';
+                restartVMBtn.style.display = 'none';
+                stopVMBtn.disabled = true;
+                document.getElementById('apply-settings-btn').disabled = true;
+                setTimeout(function() {
+                    stopVMBtn.disabled = false;
+                }, 3000);
+            }
+        }
+        
+        // Initialize terminal
+        function initTerminal() {
+            // Create terminal
+            terminal = new Terminal({
+                cursorBlink: true,
+                theme: {
+                    background: '#1e1e1e',
+                    foreground: '#f0f0f0'
+                },
+                fontSize: 14,
+                fontFamily: 'Menlo, Monaco, "Courier New", monospace',
+                scrollback: 1000
+            });
+            
+            // Create fit addon
+            const fitAddon = new FitAddon.FitAddon();
+            terminal.loadAddon(fitAddon);
+            
+            // Create web links addon
+            const webLinksAddon = new WebLinksAddon.WebLinksAddon();
+            terminal.loadAddon(webLinksAddon);
+            
+            // Create search addon
+            const searchAddon = new SearchAddon.SearchAddon();
+            terminal.loadAddon(searchAddon);
+            
+            // Open terminal
+            terminal.open(document.getElementById('terminal'));
+            fitAddon.fit();
+            
+            // Handle resize
+            window.addEventListener('resize', function() {
+                fitAddon.fit();
+            });
+            
+            // Write welcome message
+            terminal.writeln('Welcome to HackBox Docker VM Terminal');
+            terminal.writeln('');
+            terminal.writeln('Connect to a Docker host and start a VM to begin.');
+            terminal.writeln('');
+        }
+        
+        // Connect terminal to WebSocket
+        function connectTerminal() {
+            if (!terminal) return;
+            
+            // Clear terminal
+            terminal.clear();
+            
+            // Write connecting message
+            terminal.writeln('Connecting to VM terminal...');
+            terminal.writeln('');
+            
+            // In a real implementation, this would connect to a WebSocket server
+            // that provides access to the VM's terminal
+            // For demo purposes, we'll simulate a connection
+            
+            // Simulate WebSocket connection
+            setTimeout(function() {
+                terminal.writeln('Connected to VM terminal.');
+                terminal.writeln('');
+                terminal.write('root@hackbox:~# ');
+                
+                // Set up input handling
+                setupTerminalInput();
+            }, 1000);
+        }
+        
+        // Set up terminal input handling
+        function setupTerminalInput() {
+            // In a real implementation, this would send input to the WebSocket
+            // and display output from the WebSocket
+            // For demo purposes, we'll simulate command execution
+            
+            let currentLine = '';
+            
+            terminal.onData(function(data) {
+                // Handle backspace
+                if (data === '\u007f') {
+                    if (currentLine.length > 0) {
+                        currentLine = currentLine.slice(0, -1);
+                        terminal.write('\b \b');
+                    }
+                    return;
+                }
+                
+                // Handle enter
+                if (data === '\r') {
+                    terminal.writeln('');
+                    executeCommand(currentLine);
+                    currentLine = '';
+                    return;
+                }
+                
+                // Handle normal input
+                terminal.write(data);
+                currentLine += data;
+            });
+        }
+        
+        // Execute command in terminal
+        function executeCommand(command) {
+            if (!command.trim()) {
+                terminal.write('root@hackbox:~# ');
+                return;
+            }
+            
+            // Process command
+            const cmd = command.trim().toLowerCase();
+            
+            if (cmd === 'help' || cmd === 'h') {
+                terminal.writeln('Available commands:');
+                terminal.writeln('  help     - Show this help message');
+                terminal.writeln('  ls       - List files');
+                terminal.writeln('  pwd      - Print working directory');
+                terminal.writeln('  whoami   - Show current user');
+                terminal.writeln('  date     - Show current date and time');
+                terminal.writeln('  clear    - Clear the terminal');
+                terminal.writeln('  ip       - Show IP address');
+                terminal.writeln('  ps       - List processes');
+                terminal.writeln('  free     - Show memory usage');
+                terminal.writeln('  df       - Show disk usage');
+                terminal.writeln('  uname    - Show system information');
+                terminal.writeln('  exit     - Exit the terminal');
+            } else if (cmd === 'ls') {
+                terminal.writeln('Documents  Downloads  Pictures  Videos');
+                terminal.writeln('Desktop    Music      Public    hackbox.txt');
+            } else if (cmd === 'pwd') {
+                terminal.writeln('/root');
+            } else if (cmd === 'whoami') {
+                terminal.writeln('root');
+            } else if (cmd === 'date') {
+                terminal.writeln(new Date().toString());
+            } else if (cmd === 'clear') {
+                terminal.clear();
+            } else if (cmd === 'ip' || cmd === 'ifconfig') {
+                terminal.writeln('eth0: flags=4163<UP,BROADCAST,RUNNING,MULTICAST>  mtu 1500');
+                terminal.writeln('        inet ' + vmIpElement.textContent + '  netmask 255.255.255.0  broadcast 192.168.1.255');
+                terminal.writeln('        inet6 fe80::215:5dff:fe00:1  prefixlen 64  scopeid 0x20<link>');
+                terminal.writeln('        ether 00:15:5d:00:00:01  txqueuelen 1000  (Ethernet)');
+                terminal.writeln('        RX packets 1234  bytes 1234567 (1.2 MB)');
+                terminal.writeln('        RX errors 0  dropped 0  overruns 0  frame 0');
+                terminal.writeln('        TX packets 1234  bytes 1234567 (1.2 MB)');
+                terminal.writeln('        TX errors 0  dropped 0 overruns 0  carrier 0  collisions 0');
+            } else if (cmd === 'ps' || cmd === 'ps aux') {
+                terminal.writeln('USER       PID %CPU %MEM    VSZ   RSS TTY      STAT START   TIME COMMAND');
+                terminal.writeln('root         1  0.0  0.1   8940  3716 ?        Ss   00:00   0:01 /sbin/init');
+                terminal.writeln('root         2  0.0  0.0      0     0 ?        S    00:00   0:00 [kthreadd]');
+                terminal.writeln('root         3  0.0  0.0      0     0 ?        I<   00:00   0:00 [rcu_gp]');
+                terminal.writeln('root         4  0.0  0.0      0     0 ?        I<   00:00   0:00 [rcu_par_gp]');
+                terminal.writeln('root         6  0.0  0.0      0     0 ?        I<   00:00   0:00 [kworker/0:0H-kblockd]');
+                terminal.writeln('root         9  0.0  0.0      0     0 ?        I<   00:00   0:00 [mm_percpu_wq]');
+                terminal.writeln('root        10  0.0  0.0      0     0 ?        S    00:00   0:00 [ksoftirqd/0]');
+                terminal.writeln('root        11  0.0  0.0      0     0 ?        I    00:00   0:00 [rcu_sched]');
+                terminal.writeln('root        12  0.0  0.0      0     0 ?        S    00:00   0:00 [migration/0]');
+                terminal.writeln('root        13  0.0  0.0      0     0 ?        S    00:00   0:00 [cpuhp/0]');
+                terminal.writeln('root        14  0.0  0.0      0     0 ?        S    00:00   0:00 [cpuhp/1]');
+                terminal.writeln('root        15  0.0  0.0      0     0 ?        S    00:00   0:00 [migration/1]');
+                terminal.writeln('root        16  0.0  0.0      0     0 ?        S    00:00   0:00 [ksoftirqd/1]');
+                terminal.writeln('root       123  0.0  0.3  23456  9876 ?        Ss   00:00   0:00 /usr/sbin/sshd -D');
+                terminal.writeln('root       456  0.0  0.2  34567  8765 ?        Ss   00:00   0:00 /usr/sbin/apache2 -k start');
+            } else if (cmd === 'free' || cmd === 'free -h') {
+                terminal.writeln('              total        used        free      shared  buff/cache   available');
+                terminal.writeln('Mem:          ' + document.getElementById('memory').value + 'Mi       256Mi       512Mi        64Mi       256Mi       768Mi');
+                terminal.writeln('Swap:         1.0Gi          0B       1.0Gi');
+            } else if (cmd === 'df' || cmd === 'df -h') {
+                terminal.writeln('Filesystem      Size  Used Avail Use% Mounted on');
+                terminal.writeln('/dev/sda1        ' + document.getElementById('storage').value + 'G   3.5G   ' + (document.getElementById('storage').value - 3.5) + 'G  35% /');
+                terminal.writeln('tmpfs           512M     0  512M   0% /dev/shm');
+                terminal.writeln('tmpfs           512M  6.1M  506M   2% /run');
+                terminal.writeln('tmpfs           512M     0  512M   0% /sys/fs/cgroup');
+                terminal.writeln('/dev/sda15      124M   12M  113M  10% /boot/efi');
+                terminal.writeln('tmpfs           102M     0  102M   0% /run/user/0');
+            } else if (cmd === 'uname' || cmd === 'uname -a') {
+                terminal.writeln('Linux hackbox 5.15.0-58-generic #64-Ubuntu SMP x86_64 GNU/Linux');
+            } else if (cmd === 'exit') {
+                terminal.writeln('Closing terminal session...');
+                setTimeout(function() {
+                    terminal.clear();
+                    terminal.writeln('Terminal session closed.');
+                    terminal.writeln('');
+                    terminal.writeln('Click "Clear" to start a new session.');
+                }, 1000);
+                return;
+            } else if (cmd === 'cat hackbox.txt') {
+                terminal.writeln('Welcome to HackBox Docker VM!');
+                terminal.writeln('');
+                terminal.writeln('This is a real Docker VM running in your browser.');
+                terminal.writeln('You can use it for cybersecurity training, development, and more.');
+                terminal.writeln('');
+                terminal.writeln('Enjoy your hacking experience!');
+            } else if (cmd.startsWith('cat ')) {
+                terminal.writeln('cat: ' + cmd.substring(4) + ': No such file or directory');
+            } else if (cmd.startsWith('cd ')) {
+                terminal.writeln('Changed directory to ' + cmd.substring(3));
+            } else if (cmd.startsWith('mkdir ')) {
+                terminal.writeln('Directory created: ' + cmd.substring(6));
+            } else if (cmd.startsWith('touch ')) {
+                terminal.writeln('File created: ' + cmd.substring(6));
+            } else if (cmd.startsWith('rm ')) {
+                terminal.writeln('File removed: ' + cmd.substring(3));
+            } else if (cmd.startsWith('echo ')) {
+                terminal.writeln(cmd.substring(5));
+            } else {
+                terminal.writeln('bash: ' + cmd + ': command not found');
+            }
+            
+            terminal.write('root@hackbox:~# ');
+        }
+        
+        // Clear terminal
+        function clearTerminal() {
+            if (terminal) {
+                terminal.clear();
+                terminal.write('root@hackbox:~# ');
+            }
+        }
+        
+        // Copy terminal selection
+        function copyTerminalSelection() {
+            if (terminal) {
+                const selection = terminal.getSelection();
+                if (selection) {
+                    navigator.clipboard.writeText(selection).then(function() {
+                        // Success
+                    }, function() {
+                        alert('Failed to copy text to clipboard');
+                    });
+                }
+            }
+        }
+        
+        // Paste to terminal
+        function pasteToTerminal() {
+            if (terminal) {
+                navigator.clipboard.readText().then(function(text) {
+                    terminal.paste(text);
+                }, function() {
+                    alert('Failed to read from clipboard');
+                });
+            }
+        }
+        
+        // Load desktop
+        function loadDesktop() {
+            // In a real implementation, this would load a noVNC or similar interface
+            // For demo purposes, we'll simulate loading a desktop
+            
+            // Set iframe source to a placeholder
+            desktopIframe.src = 'about:blank';
+            
+            // Show loading message in iframe
+            const iframeDoc = desktopIframe.contentDocument || desktopIframe.contentWindow.document;
+            iframeDoc.open();
+            iframeDoc.write(`
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <style>
+                        body {
+                            background-color: #2b2b2b;
+                            color: white;
+                            font-family: Arial, sans-serif;
+                            display: flex;
+                            flex-direction: column;
+                            justify-content: center;
+                            align-items: center;
+                            height: 100vh;
+                            margin: 0;
+                        }
+                        .desktop-demo {
+                            width: 800px;
+                            height: 600px;
+                            background-color: #333;
+                            border-radius: 8px;
+                            overflow: hidden;
+                            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.3);
+                            display: flex;
+                            flex-direction: column;
+                        }
+                        .desktop-demo-header {
+                            background-color: #444;
+                            padding: 4px 8px;
+                            display: flex;
+                            justify-content: space-between;
+                        }
+                        .desktop-demo-title {
+                            font-size: 14px;
+                        }
+                        .desktop-demo-controls {
+                            display: flex;
+                        }
+                        .desktop-demo-control {
+                            width: 16px;
+                            height: 16px;
+                            border-radius: 50%;
+                            margin-left: 8px;
+                            cursor: pointer;
+                        }
+                        .desktop-demo-control:nth-child(1) {
+                            background-color: #ff5f56;
+                        }
+                        .desktop-demo-control:nth-child(2) {
+                            background-color: #ffbd2e;
+                        }
+                        .desktop-demo-control:nth-child(3) {
+                            background-color: #27c93f;
+                        }
+                        .desktop-demo-content {
+                            flex: 1;
+                            display: flex;
+                            background-image: url('https://i.imgur.com/8rqUBtV.jpg');
+                            background-size: cover;
+                            position: relative;
+                        }
+                        .desktop-demo-sidebar {
+                            width: 60px;
+                            background-color: rgba(0, 0, 0, 0.7);
+                            display: flex;
+                            flex-direction: column;
+                            align-items: center;
+                            padding-top: 10px;
+                        }
+                        .desktop-demo-icon {
+                            width: 40px;
+                            height: 40px;
+                            background-color: rgba(255, 255, 255, 0.1);
+                            border-radius: 4px;
+                            margin-bottom: 10px;
+                            display: flex;
+                            justify-content: center;
+                            align-items: center;
+                            font-size: 20px;
+                            cursor: pointer;
+                        }
+                        .desktop-demo-icon:hover {
+                            background-color: rgba(255, 255, 255, 0.2);
+                        }
+                        .desktop-demo-window {
+                            position: absolute;
+                            top: 50px;
+                            left: 100px;
+                            width: 500px;
+                            height: 300px;
+                            background-color: #222;
+                            border-radius: 6px;
+                            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.5);
+                            overflow: hidden;
+                            display: flex;
+                            flex-direction: column;
+                        }
+                        .desktop-demo-window-header {
+                            background-color: #333;
+                            padding: 8px;
+                            display: flex;
+                            justify-content: space-between;
+                            align-items: center;
+                        }
+                        .desktop-demo-window-title {
+                            font-size: 14px;
+                        }
+                        .desktop-demo-window-close {
+                            cursor: pointer;
+                        }
+                        .desktop-demo-window-content {
+                            flex: 1;
+                            padding: 10px;
+                            font-family: monospace;
+                            font-size: 14px;
+                            color: #0f0;
+                            overflow: auto;
+                        }
+                        .desktop-demo-footer {
+                            height: 30px;
+                            background-color: rgba(0, 0, 0, 0.7);
+                            display: flex;
+                            align-items: center;
+                            padding: 0 10px;
+                        }
+                        .desktop-demo-start {
+                            background-color: #E95420;
+                            color: white;
+                            padding: 2px 10px;
+                            border-radius: 3px;
+                            margin-right: 10px;
+                            font-size: 12px;
+                            cursor: pointer;
+                        }
+                        .desktop-demo-taskbar {
+                            flex: 1;
+                            display: flex;
+                            align-items: center;
+                        }
+                        .desktop-demo-task {
+                            background-color: rgba(255, 255, 255, 0.1);
+                            padding: 2px 10px;
+                            border-radius: 3px;
+                            margin-right: 5px;
+                            font-size: 12px;
+                        }
+                        .desktop-demo-time {
+                            font-size: 12px;
+                        }
+                        .message {
+                            margin-top: 20px;
+                            text-align: center;
+                            max-width: 600px;
+                        }
+                    </style>
+                </head>
+                <body>
+                    <div class="desktop-demo">
+                        <div class="desktop-demo-header">
+                            <div class="desktop-demo-title">${getVMName(vmType)} Desktop</div>
+                            <div class="desktop-demo-controls">
+                                <div class="desktop-demo-control"></div>
+                                <div class="desktop-demo-control"></div>
+                                <div class="desktop-demo-control"></div>
+                            </div>
+                        </div>
+                        <div class="desktop-demo-content">
+                            <div class="desktop-demo-sidebar">
+                                <div class="desktop-demo-icon">🖥️</div>
+                                <div class="desktop-demo-icon">📁</div>
+                                <div class="desktop-demo-icon">🌐</div>
+                                <div class="desktop-demo-icon">📝</div>
+                                <div class="desktop-demo-icon">⚙️</div>
+                            </div>
+                            <div class="desktop-demo-window">
+                                <div class="desktop-demo-window-header">
+                                    <div class="desktop-demo-window-title">Terminal</div>
+                                    <div class="desktop-demo-window-close">✕</div>
+                                </div>
+                                <div class="desktop-demo-window-content">
+                                    <pre>Welcome to ${getVMName(vmType)}!
+
+root@hackbox:~# ls
+Documents  Downloads  Pictures  Videos
+Desktop    Music      Public    hackbox.txt
+
+root@hackbox:~# cat hackbox.txt
+Welcome to HackBox Docker VM!
+
+This is a real Docker VM running in your browser.
+You can use it for cybersecurity training, development, and more.
+
+Enjoy your hacking experience!
+
+root@hackbox:~# _</pre>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="desktop-demo-footer">
+                            <div class="desktop-demo-start">Start</div>
+                            <div class="desktop-demo-taskbar">
+                                <div class="desktop-demo-task">Terminal</div>
+                            </div>
+                            <div class="desktop-demo-time" id="desktop-time"></div>
+                        </div>
+                    </div>
+                    <div class="message">
+                        <p>This is a real-time view of your Docker VM's desktop environment.</p>
+                        <p>In a full implementation, this would be a noVNC connection to your Docker container.</p>
+                    </div>
+                    
+                    <script>
+                        // Update time
+                        function updateTime() {
+                            document.getElementById('desktop-time').textContent = new Date().toLocaleTimeString();
+                        }
+                        updateTime();
+                        setInterval(updateTime, 1000);
+                    </script>
+                </body>
+                </html>
+            `);
+            iframeDoc.close();
+        }
+        
+        // Toggle fullscreen for desktop
+        function toggleFullscreen() {
+            if (desktopIframe) {
+                if (document.fullscreenElement) {
+                    document.exitFullscreen();
+                } else {
+                    desktopIframe.requestFullscreen();
+                }
+            }
+        }
+        
+        // Refresh desktop
+        function refreshDesktop() {
+            if (vmStatus === 'running') {
+                loadDesktop();
+            }
+        }
+        
+        // Apply VM settings
+        function applySettings() {
+            if (vmStatus !== 'stopped') {
+                alert('VM must be stopped to apply settings');
+                return;
+            }
+            
+            const cpuCores = document.getElementById('cpu-cores').value;
+            const memory = document.getElementById('memory').value;
+            const storage = document.getElementById('storage').value;
+            
+            showLoading('Applying VM settings...');
+            
+            // Simulate API call to apply settings
+            setTimeout(function() {
+                // In a real implementation, this would be an actual API call
+                const success = true; // Simulate successful settings update
+                
+                if (success) {
+                    // Update VM info
+                    vmCpuElement.textContent = cpuCores + ' cores';
+                    vmMemoryElement.textContent = memory + ' MB';
+                    
+                    alert('VM settings applied successfully');
+                    hideLoading();
+                } else {
+                    alert('Failed to apply VM settings. Please try again.');
+                    hideLoading();
+                }
+            }, 1500);
+        }
+        
+        // Apply network settings
+        function applyNetworkSettings() {
+            const portForwarding = document.getElementById('port-forwarding').value;
+            
+            showLoading('Applying network settings...');
+            
+            // Simulate API call to apply network settings
+            setTimeout(function() {
+                // In a real implementation, this would be an actual API call
+                const success = true; // Simulate successful network settings update
+                
+                if (success) {
+                    alert('Network settings applied successfully');
+                    hideLoading();
+                } else {
+                    alert('Failed to apply network settings. Please try again.');
+                    hideLoading();
+                }
+            }, 1500);
+        }
+        
+        // Switch between tabs
+        function switchTab(tabName) {
+            // Update tab buttons
+            document.querySelectorAll('.tab').forEach(tab => {
+                if (tab.getAttribute('data-tab') === tabName) {
+                    tab.classList.add('active');
+                } else {
+                    tab.classList.remove('active');
+                }
+            });
+            
+            // Update tab content
+            document.querySelectorAll('.tab-content').forEach(content => {
+                if (content.id === tabName + '-tab') {
+                    content.classList.add('active');
+                } else {
+                    content.classList.remove('active');
+                }
+            });
+        }
+        
+        // Update uptime
+        function updateUptime() {
+            if (startTime) {
+                const now = new Date();
+                const diff = now - startTime;
+                
+                const seconds = Math.floor(diff / 1000) % 60;
+                const minutes = Math.floor(diff / (1000 * 60)) % 60;
+                const hours = Math.floor(diff / (1000 * 60 * 60)) % 24;
+                const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+                
+                let uptime = '';
+                if (days > 0) {
+                    uptime += days + 'd ';
+                }
+                uptime += hours.toString().padStart(2, '0') + ':';
+                uptime += minutes.toString().padStart(2, '0') + ':';
+                uptime += seconds.toString().padStart(2, '0');
+                
+                vmUptimeElement.textContent = uptime;
+            }
+        }
+        
+        // Show loading overlay
+        function showLoading(message) {
+            loadingMessage.textContent = message || 'Loading...';
+            loadingOverlay.style.display = 'flex';
+        }
+        
+        // Hide loading overlay
+        function hideLoading() {
+            loadingOverlay.style.display = 'none';
+        }
+        
+        // Show connection error
+        function showConnectionError(message) {
+            connectionError.textContent = message;
+            connectionError.style.display = 'block';
+        }
+        
+        // Get VM name from VM type
+        function getVMName(type) {
+            const vmNames = {
+                'ubuntu-lxde': 'Ubuntu LXDE',
+                'kali-linux': 'Kali Linux',
+                'parrot-sec': 'Parrot Security'
+            };
+            return vmNames[type] || 'Unknown VM';
+        }
+    </script>
+</body>
+</html>
